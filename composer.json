@@ -1,5 +1,6 @@
 {
     "name": "joranski/laravel-addressing",
+    "version": "0.1.0",
     "description": "Universal address handling for Laravel: commerceguys-backed format validation, pluggable verifier chain (Google, Null, custom), Filament form/table/infolist components, and a HasAddresses trait with shipping/billing defaults via pivot.",
     "type": "library",
     "license": "MIT",
@@ -47,10 +48,5 @@
     },
     "scripts": {
         "test": "vendor/bin/pest --compact"
-    },
-    "repositories": [{
-        "name": "filament",
-        "type": "composer",
-        "url": "https://packages.filamentphp.com/composer"
-    }]
+    }
 }
