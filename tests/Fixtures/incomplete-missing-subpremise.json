@@ -1,0 +1,45 @@
+{
+    "responseId": "incomplete-missing-subpremise-fixture",
+    "result": {
+        "verdict": {
+            "inputGranularity": "PREMISE",
+            "validationGranularity": "PREMISE",
+            "geocodeGranularity": "PREMISE",
+            "addressComplete": false,
+            "hasUnconfirmedComponents": true,
+            "hasReplaceableComponents": false,
+            "possibleNextAction": "CONFIRM_ADD_SUBPREMISES"
+        },
+        "address": {
+            "formattedAddress": "100 Apartment Way, San Francisco, CA 94110, USA",
+            "postalAddress": {
+                "regionCode": "US",
+                "postalCode": "94110",
+                "administrativeArea": "CA",
+                "locality": "San Francisco",
+                "addressLines": ["100 Apartment Way"]
+            },
+            "addressComponents": [
+                {
+                    "componentName": {"text": "100", "languageCode": "en"},
+                    "componentType": "street_number",
+                    "confirmationLevel": "CONFIRMED"
+                },
+                {
+                    "componentName": {"text": "Apartment Way", "languageCode": "en"},
+                    "componentType": "route",
+                    "confirmationLevel": "UNCONFIRMED_BUT_PLAUSIBLE"
+                }
+            ],
+            "missingComponentTypes": ["subpremise"]
+        },
+        "geocode": {
+            "location": {"latitude": 37.7480, "longitude": -122.4180}
+        },
+        "metadata": {
+            "business": false,
+            "poBox": false,
+            "residential": true
+        }
+    }
+}

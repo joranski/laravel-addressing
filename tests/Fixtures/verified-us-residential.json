@@ -1,0 +1,50 @@
+{
+    "responseId": "verified-us-residential-fixture",
+    "result": {
+        "verdict": {
+            "inputGranularity": "PREMISE",
+            "validationGranularity": "PREMISE",
+            "geocodeGranularity": "PREMISE",
+            "addressComplete": true,
+            "hasUnconfirmedComponents": false,
+            "hasReplaceableComponents": false
+        },
+        "address": {
+            "formattedAddress": "1 Main St, Phoenix, AZ 85001, USA",
+            "postalAddress": {
+                "regionCode": "US",
+                "languageCode": "en",
+                "postalCode": "85001",
+                "administrativeArea": "AZ",
+                "locality": "Phoenix",
+                "addressLines": ["1 Main St"]
+            },
+            "addressComponents": [
+                {
+                    "componentName": {"text": "1", "languageCode": "en"},
+                    "componentType": "street_number",
+                    "confirmationLevel": "CONFIRMED"
+                },
+                {
+                    "componentName": {"text": "Main St", "languageCode": "en"},
+                    "componentType": "route",
+                    "confirmationLevel": "CONFIRMED"
+                },
+                {
+                    "componentName": {"text": "Phoenix", "languageCode": "en"},
+                    "componentType": "locality",
+                    "confirmationLevel": "CONFIRMED"
+                }
+            ]
+        },
+        "geocode": {
+            "location": {"latitude": 33.4484, "longitude": -112.0740},
+            "plusCode": {"globalCode": "85FQ+9G Phoenix, AZ, USA"}
+        },
+        "metadata": {
+            "business": false,
+            "poBox": false,
+            "residential": true
+        }
+    }
+}

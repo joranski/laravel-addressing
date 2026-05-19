@@ -1,0 +1,56 @@
+{
+    "name": "joranski/laravel-addressing",
+    "description": "Universal address handling for Laravel: commerceguys-backed format validation, pluggable verifier chain (Google, Null, custom), Filament form/table/infolist components, and a HasAddresses trait with shipping/billing defaults via pivot.",
+    "type": "library",
+    "license": "MIT",
+    "require": {
+        "php": "^8.3",
+        "commerceguys/addressing": "^2.2",
+        "illuminate/contracts": "^12.0 || ^13.0",
+        "illuminate/database": "^12.0 || ^13.0",
+        "illuminate/support": "^12.0 || ^13.0"
+    },
+    "require-dev": {
+        "filament/filament": "^5.0",
+        "orchestra/testbench": "^10.0",
+        "pestphp/pest": "^4.0",
+        "pestphp/pest-plugin-laravel": "^4.0"
+    },
+    "suggest": {
+        "filament/filament": "Required for AddressInput, AddressColumn, AddressEntry, and ValidAddress components."
+    },
+    "autoload": {
+        "psr-4": {
+            "Joranski\\Addressing\\": "src/",
+            "Joranski\\Addressing\\Database\\Factories\\": "database/factories/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Joranski\\Addressing\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Joranski\\Addressing\\AddressingServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true,
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    },
+    "scripts": {
+        "test": "vendor/bin/pest --compact"
+    },
+    "repositories": [{
+        "name": "filament",
+        "type": "composer",
+        "url": "https://packages.filamentphp.com/composer"
+    }]
+}
