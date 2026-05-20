@@ -7,12 +7,11 @@ use Joranski\Addressing\Models\Country;
 use Joranski\Addressing\Support\CountrySelectOptions;
 use Joranski\Addressing\Support\SubdivisionSelectOptions;
 
-it('formats country labels with emoji and iso codes', function (): void {
+it('formats country labels with generated flag emoji and iso codes', function (): void {
     $country = new Country([
         'iso2' => 'US',
         'iso3' => 'USA',
         'name' => 'United States',
-        'emoji' => '🇺🇸',
     ]);
 
     expect(CountrySelectOptions::formatLabel($country))
@@ -24,7 +23,6 @@ it('finds countries by iso2 iso3 or name when searching', function (): void {
         'iso2' => 'US',
         'iso3' => 'USA',
         'name' => 'United States',
-        'emoji' => '🇺🇸',
     ]);
 
     expect(CountrySelectOptions::search(search: 'US'))->toHaveKey('US')

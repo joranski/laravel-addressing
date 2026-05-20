@@ -1,16 +1,34 @@
 # joranski/laravel-addressing
 
-Universal address handling for Laravel applications.
+Universal address handling for Laravel applications — offline format validation, pluggable verification, and Filament v5 form components.
 
 ## Features
 
+### Core
+
 - W3C / libaddressinput column naming (`address_line1`, `locality`, `administrative_area`, …)
-- Offline format validation via `commerceguys/addressing`
+- Offline format validation via [`commerceguys/addressing`](https://github.com/commerceguys/addressing)
 - Pluggable verifier chain (`NullVerifier`, `GoogleAddressVerifier`, `CachedVerifier`, `ChainedVerifier`)
 - TTL caching with error-safe semantics (transient API failures are never cached)
 - `HasAddresses` trait with shipping/billing defaults via `address_usages` pivot
-- Filament v5 components: `AddressInput`, `AddressColumn`, `AddressEntry`, `ValidAddress` rule
-- `addressing:sync-countries` artisan command
+- `addressing:sync-countries` Artisan command
+
+### Filament v5
+
+- **`AddressInput`** — drop-in address section with optional Google Places autocomplete, map pin, and external verification toggle
+- **`AddressColumn`** / **`AddressEntry`** — read-only table and infolist display
+- **`ValidAddress`** — composite validation rule wired to `AddressFormatValidator` and optional verifiers
+- **Country select** — searchable by name, ISO2, or ISO3; labels prefixed with dynamically generated Unicode flag emoji
+- **State / Province select** — country-dependent subdivisions from commerceguys; searchable by full name or abbreviation (e.g. `Arizona` / `AZ`, `Forlì-Cesena` / `FC`)
+- **Google Places populate** — selects an address and fills street, city, postal code, country, and subdivision; handles cross-country updates and Italian province codes (`administrative_area_level_2`)
+
+### Field naming
+
+| API | Use case |
+|-----|----------|
+| `AddressInput::make('address')` | Canonical W3C columns on an `Address` model |
+| `AddressInput::embeddedSchema()` | Same fields inside a relationship form |
+| `AddressInput::flatComponentSchema()` | Legacy flat JSON keys (`street_line_1`, `city`, `state`, `zip`, `country_iso2`) |
 
 ## Installation
 
@@ -26,9 +44,13 @@ Publish config (optional):
 php artisan vendor:publish --tag=addressing-config
 ```
 
+Configure Google Places (host app) and map defaults in `config/addressing.php` after publishing.
+
 ## Usage
 
-Add the trait to any Eloquent model:
+### Eloquent
+
+Add the trait to any model that owns addresses:
 
 ```php
 use Joranski\Addressing\Concerns\HasAddresses;
@@ -39,19 +61,85 @@ class Company extends Model
 }
 ```
 
-Use the Filament form component:
+### Filament — full address form
 
 ```php
 use Joranski\Addressing\Filament\Forms\Components\AddressInput;
 
-AddressInput::make('address')->required();
+AddressInput::make('address')
+    ->heading('Address')
+    ->showMap()
+    ->layoutSplitMap();
 ```
+
+Options:
+
+| Method | Default | Description |
+|--------|---------|-------------|
+| `showMap()` | `false` | Map pin + lat/lng fields |
+| `layoutSplitMap()` | stacked | Side-by-side map layout |
+| `showGooglePlacesAutocomplete()` | `true` | Google Places search field |
+| `showValidationToggle()` | `true` | External verification toggle |
+
+### Filament — flat JSON fields (e.g. driver logs)
+
+```php
+AddressInput::flatComponentSchema(showMap: true);
+```
+
+### Validation rule
+
+```php
+use Joranski\Addressing\Filament\Forms\Components\AddressInput;
+
+AddressInput::make('address')
+    ->rule(AddressInput::rule());
+```
+
+## Country flags
+
+Country select labels are prefixed with Unicode flag emoji generated at runtime from the ISO2 code — **not** read from the database `countries.emoji` column.
+
+```php
+use Joranski\Addressing\Support\CountryFlagEmoji;
+
+CountryFlagEmoji::fromIso2('US'); // 🇺🇸
+```
+
+Implementation uses `mb_ord` / `mb_chr` with the regional-indicator offset (`127397`). On **Windows**, many systems render these as two-letter regional indicators (e.g. `US`) rather than a colored flag, due to OS font limitations. macOS, Linux, iOS, and Android typically show the graphical flag.
+
+## Google Places populate
+
+When Google Places autocomplete is enabled, selecting a result:
+
+1. Parses all `address_components` types (not only the first)
+2. Prefers subdivision level-2 codes where applicable (e.g. Italian provinces)
+3. Batches field updates in a single Livewire commit so country and state stay in sync
+
+## Search behaviour
+
+**Country** — search by `United`, `US`, or `USA`; labels look like `🇺🇸 United States (US · USA)`.
+
+**State / Province** — search by full name or code; labels look like `Arizona (AZ)`. Options refresh when the country changes.
 
 ## Testing
 
 ```bash
 composer test
 ```
+
+Run a subset:
+
+```bash
+vendor/bin/pest --compact tests/Feature/Filament/AddressInputTest.php
+vendor/bin/pest --compact tests/Unit/Support/CountryFlagEmojiTest.php
+```
+
+## Requirements
+
+- PHP 8.3+
+- Laravel 12+
+- Filament 5+ (optional; required for form/table/infolist components)
 
 ## License
 
