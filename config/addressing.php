@@ -44,4 +44,17 @@ return [
         'endpoint' => 'https://addressvalidation.googleapis.com/v1:validateAddress',
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Default Map Center
+    |--------------------------------------------------------------------------
+    |
+    | Used by MapLocationField when no lat/lng is present in form state.
+    | Host apps may override after publishing this config file.
+    */
+    'default_map_center' => [
+        'lat' => 40.7128,
+        'lng' => -74.0060,
+    ],
+
 ];

@@ -7,10 +7,13 @@ namespace Joranski\Addressing\Filament\Forms\Components;
 // @package-candidate score=6/6 target-package=joranski/laravel-addressing
 // Target extraction path: /home/joranski/packages/laravel-addressing
 
+use Closure;
 use Joranski\Addressing\Contracts\AddressVerifier;
+use Joranski\Addressing\Enums\AddressFormLayout;
 use Joranski\Addressing\Filament\Rules\ValidAddress;
 use Joranski\Addressing\Models\Country;
 use Joranski\Addressing\Services\AddressFormatValidator;
+use Joranski\Addressing\Support\AddressFieldNames;
 use CommerceGuys\Addressing\Subdivision\SubdivisionRepository;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -18,6 +21,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Group;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
@@ -25,22 +29,14 @@ use Filament\Schemas\Components\Utilities\Set;
 /**
  * Single drop-in form component for canonical address entry.
  *
- * Replaces the 460-line `AddressForm` schema class + its 5 duplicated
- * inline rules with one composable Section that:
- *
- *  - Uses W3C / libaddressinput column names internally.
- *  - Sources the country list from the Country reference table.
- *  - Sources the state/province list reactively from commerceguys/addressing
- *    (`SubdivisionRepository`) per chosen country.
- *  - Attaches a single `ValidAddress` validation rule (offline format check
- *    + cached verifier check) at the composite level.
- *  - Optional `->showMap()` reveals the lat/lng map panel. OFF by default.
- *  - Optional `->showGooglePlacesAutocomplete()` reveals the autocomplete bar.
- *
  * Usage:
- *  AddressInput::make('address')
- *      ->showMap()
- *      ->required();
+ *  AddressInput::make('address')->showMap()->required();
+ *
+ * Embedded relationship / modal:
+ *  AddressInput::embeddedSchema(showMap: true);
+ *
+ * Flat JSON field names (driver logs):
+ *  AddressInput::flatComponentSchema(showMap: true);
  */
 class AddressInput extends Section
 {
@@ -49,6 +45,8 @@ class AddressInput extends Section
     protected bool $showGooglePlacesAutocomplete = true;
 
     protected bool $showValidationToggle = true;
+
+    protected AddressFormLayout $layout = AddressFormLayout::Stacked;
 
     public function showMap(bool $show = true): static
     {
@@ -71,6 +69,13 @@ class AddressInput extends Section
         return $this;
     }
 
+    public function layoutSplitMap(bool $split = true): static
+    {
+        $this->layout = $split ? AddressFormLayout::SplitWithMap : AddressFormLayout::Stacked;
+
+        return $this;
+    }
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -81,65 +86,163 @@ class AddressInput extends Section
             showMap: $this->showMap,
             showGooglePlacesAutocomplete: $this->showGooglePlacesAutocomplete,
             showValidationToggle: $this->showValidationToggle,
+            layout: $this->layout,
         ));
     }
 
     /**
-     * Static schema builder — exposed so tests (and consumers) can read the
-     * inner field set without mounting a full Filament Schema container.
+     * Schema for morphOne / embedded relationship forms.
      *
+     * @return list<Component>
+     */
+    public static function embeddedSchema(
+        bool $showMap = false,
+        bool $showGooglePlacesAutocomplete = true,
+        bool $showValidationToggle = true,
+        AddressFormLayout $layout = AddressFormLayout::Stacked,
+    ): array {
+        return static::componentSchema(
+            showMap: $showMap,
+            showGooglePlacesAutocomplete: $showGooglePlacesAutocomplete,
+            showValidationToggle: $showValidationToggle,
+            names: AddressFieldNames::canonical(),
+            layout: $layout,
+        );
+    }
+
+    /**
+     * Flat legacy field names for JSON embeds (e.g. driver-log stop data).
+     *
+     * @return list<Component>
+     */
+    public static function flatComponentSchema(
+        bool $showMap = true,
+        bool $showGooglePlacesAutocomplete = true,
+        bool $showValidationToggle = true,
+        AddressFormLayout $layout = AddressFormLayout::SplitWithMap,
+    ): array {
+        return static::componentSchema(
+            showMap: $showMap,
+            showGooglePlacesAutocomplete: $showGooglePlacesAutocomplete,
+            showValidationToggle: $showValidationToggle,
+            names: AddressFieldNames::flat(),
+            layout: $layout,
+        );
+    }
+
+    /**
      * @return list<Component>
      */
     public static function componentSchema(
         bool $showMap = false,
         bool $showGooglePlacesAutocomplete = true,
         bool $showValidationToggle = true,
+        ?AddressFieldNames $names = null,
+        AddressFormLayout $layout = AddressFormLayout::Stacked,
+    ): array {
+        $names ??= AddressFieldNames::canonical();
+
+        $addressFields = static::buildAddressFields(
+            names: $names,
+            showGooglePlacesAutocomplete: $showGooglePlacesAutocomplete,
+            showValidationToggle: $showValidationToggle,
+        );
+
+        if (! $showMap) {
+            return $addressFields;
+        }
+
+        $mapPanel = static::buildMapPanel(names: $names);
+
+        if ($layout === AddressFormLayout::SplitWithMap) {
+            return [
+                Group::make()
+                    ->schema([
+                        Group::make()
+                            ->schema($addressFields)
+                            ->columnSpan(['lg' => 3]),
+                        Group::make()
+                            ->schema([$mapPanel])
+                            ->columnSpan(['lg' => 2]),
+                    ])
+                    ->columns(['lg' => 5])
+                    ->columnSpanFull(),
+            ];
+        }
+
+        return array_merge($addressFields, [$mapPanel]);
+    }
+
+    /**
+     * @return list<Component>
+     */
+    protected static function buildAddressFields(
+        AddressFieldNames $names,
+        bool $showGooglePlacesAutocomplete,
+        bool $showValidationToggle,
     ): array {
         $schema = [];
 
         if ($showGooglePlacesAutocomplete) {
-            $schema[] = GooglePlacesAutocomplete::make('autocomplete')
+            $schema[] = GooglePlacesAutocomplete::make($names->freeformAddress)
                 ->label('Search address')
+                ->placeholder(__('Search for address'))
                 ->columnSpanFull()
-                ->dehydrated(false);
+                ->dehydrated()
+                ->populate($names->googlePlacesPopulateMap());
         }
 
         if ($showValidationToggle) {
-            $schema[] = Toggle::make('validate_address')
+            $schema[] = Toggle::make($names->validateAddress)
                 ->label('Verify address against external service')
                 ->default(true)
+                ->columnSpanFull()
+                ->live();
+        }
+
+        if ($names->includeRecipientOrganization) {
+            $schema[] = TextInput::make('recipient')
+                ->label('Recipient (optional)')
+                ->maxLength(150)
+                ->columnSpanFull();
+
+            $schema[] = TextInput::make('organization')
+                ->label('Organization (optional)')
+                ->maxLength(150)
                 ->columnSpanFull();
         }
 
-        $schema[] = TextInput::make('recipient')
-            ->label('Recipient (optional)')
+        $line1 = TextInput::make($names->addressLine1)
+            ->label('Street address')
+            ->required()
             ->maxLength(150)
-            ->columnSpanFull();
-
-        $schema[] = TextInput::make('organization')
-            ->label('Organization (optional)')
-            ->maxLength(150)
-            ->columnSpanFull();
+            ->live(onBlur: false)
+            ->rules(fn (Get $get): array => static::validationRules(get: $get, names: $names));
 
         $schema[] = Grid::make(2)->schema([
-            TextInput::make('address_line1')
-                ->label('Street address')
-                ->required()
-                ->maxLength(150),
-            TextInput::make('address_line2')
+            $line1,
+            TextInput::make($names->addressLine2)
                 ->label('Apt / suite / unit (optional)')
                 ->maxLength(150),
         ]);
 
-        $schema[] = Grid::make(3)->schema([
-            TextInput::make('locality')
-                ->label('City')
-                ->required()
-                ->maxLength(100),
-            Select::make('administrative_area')
+        $localityField = TextInput::make($names->locality)
+            ->label('City')
+            ->required()
+            ->maxLength(100)
+            ->live(onBlur: false);
+
+        $postalField = TextInput::make($names->postalCode)
+            ->label('Postal code')
+            ->required()
+            ->maxLength(25)
+            ->live(onBlur: false);
+
+        if ($names->useSubdivisionSelect) {
+            $adminField = Select::make($names->administrativeArea)
                 ->label('State / Province')
-                ->options(function (Get $get): array {
-                    $country = $get('country_code') ?? 'US';
+                ->options(function (Get $get) use ($names): array {
+                    $country = $get($names->countryCode) ?? 'US';
                     $subdivisions = (new SubdivisionRepository)->getAll([$country]);
                     $options = [];
                     foreach ($subdivisions as $code => $subdivision) {
@@ -149,46 +252,100 @@ class AddressInput extends Section
                     return $options;
                 })
                 ->searchable()
-                ->live(),
-            TextInput::make('postal_code')
-                ->label('Postal code')
-                ->required()
-                ->maxLength(25),
+                ->live();
+        } else {
+            $adminField = TextInput::make($names->administrativeArea)
+                ->label('State / Province')
+                ->maxLength(100)
+                ->live(onBlur: false);
+        }
+
+        $schema[] = Grid::make(3)->schema([
+            $localityField,
+            $adminField,
+            $postalField,
         ]);
 
-        $schema[] = Select::make('country_code')
+        $schema[] = Select::make($names->countryCode)
             ->label('Country')
-            ->options(fn () => Country::query()->orderBy('name')->pluck('name', 'iso2')->all())
+            ->options(fn (): array => Country::query()->orderBy('name')->pluck('name', 'iso2')->all())
             ->default('US')
             ->required()
             ->searchable()
             ->live()
-            ->afterStateUpdated(fn (Set $set) => $set('administrative_area', null));
+            ->afterStateUpdated(fn (Set $set) => $set($names->administrativeArea, null));
 
-        $schema[] = Textarea::make('delivery_instructions')
+        $schema[] = Textarea::make($names->deliveryInstructions)
             ->label('Delivery instructions (optional)')
             ->rows(2)
+            ->maxLength(250)
             ->columnSpanFull();
-
-        if ($showMap) {
-            $schema[] = MapLocationField::make('location')
-                ->label('Map location')
-                ->columnSpanFull();
-        }
 
         return $schema;
     }
 
+    protected static function buildMapPanel(AddressFieldNames $names): Component
+    {
+        return Group::make()
+            ->schema([
+                Section::make('Map location')
+                    ->schema([
+                        MapLocationField::make($names->location)
+                            ->hiddenLabel()
+                            ->defaultZoom(15)
+                            ->columnSpanFull()
+                            ->live()
+                            ->afterStateUpdated(function (?array $state, Set $set) use ($names): void {
+                                $set($names->latitude, $state['lat'] ?? null);
+                                $set($names->longitude, $state['lng'] ?? null);
+                            }),
+                        Grid::make(2)->schema([
+                            TextInput::make($names->latitude)
+                                ->label('Latitude')
+                                ->numeric()
+                                ->disabled()
+                                ->dehydrated(),
+                            TextInput::make($names->longitude)
+                                ->label('Longitude')
+                                ->numeric()
+                                ->disabled()
+                                ->dehydrated(),
+                        ]),
+                    ])
+                    ->columnSpanFull(),
+            ])
+            ->columnSpanFull();
+    }
+
     /**
-     * Composite-level validation rule. Hang this on the row's address_line1
-     * (or attach via your form's `->rules()`) — it pulls the full address out
-     * of `Get $get` and runs the two-stage offline + verifier check.
+     * Validation rules for address_line1 when external verification is enabled.
+     *
+     * @return list<Closure|string>
      */
+    public static function validationRules(Get $get, ?AddressFieldNames $names = null): array
+    {
+        $names ??= AddressFieldNames::canonical();
+
+        if (! $get($names->validateAddress)) {
+            return [];
+        }
+
+        return [
+            function (string $attribute, mixed $value, Closure $fail) use ($get, $names): void {
+                static::rule()->validate(
+                    attribute: $attribute,
+                    value: $names->toAddressDataArray(get: $get),
+                    fail: $fail,
+                );
+            },
+        ];
+    }
+
     public static function rule(): ValidAddress
     {
         return new ValidAddress(
-            new AddressFormatValidator,
-            app(AddressVerifier::class),
+            format: new AddressFormatValidator,
+            verifier: app(AddressVerifier::class),
         );
     }
 }

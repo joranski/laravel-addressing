@@ -6,10 +6,15 @@ use Joranski\Addressing\Filament\Forms\Components\AddressInput;
 use Joranski\Addressing\Filament\Forms\Components\GooglePlacesAutocomplete;
 use Joranski\Addressing\Filament\Forms\Components\MapLocationField;
 use Joranski\Addressing\Filament\Rules\ValidAddress;
+use Joranski\Addressing\Support\AddressFieldNames;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Group;
+use Filament\Schemas\Components\Section;
 
 function fieldNamesIn(array $schema): array
 {
@@ -30,10 +35,10 @@ function fieldNamesIn(array $schema): array
                     $names[] = $name;
                 }
             } catch (Throwable) {
-                // Grid components have no name and access $container; skip.
+                // Container components may not expose a name; skip.
             }
         }
-        if ($component instanceof Grid) {
+        if ($component instanceof Grid || $component instanceof Group || $component instanceof Section) {
             $reflection = new ReflectionProperty($component, 'childComponents');
             $reflection->setAccessible(true);
             $kids = $reflection->getValue($component);
@@ -44,6 +49,44 @@ function fieldNamesIn(array $schema): array
     }
 
     return $names;
+}
+
+function findComponentByClass(array $schema, string $class): ?object
+{
+    foreach ($schema as $component) {
+        if (is_array($component)) {
+            $found = findComponentByClass($component, $class);
+            if ($found !== null) {
+                return $found;
+            }
+
+            continue;
+        }
+        if ($component instanceof $class) {
+            return $component;
+        }
+        if ($component instanceof Grid || $component instanceof Group || $component instanceof Section) {
+            $reflection = new ReflectionProperty($component, 'childComponents');
+            $reflection->setAccessible(true);
+            $kids = $reflection->getValue($component);
+            if (is_array($kids)) {
+                $found = findComponentByClass($kids, $class);
+                if ($found !== null) {
+                    return $found;
+                }
+            }
+        }
+    }
+
+    return null;
+}
+
+function componentIsLive(object $component): bool
+{
+    $reflection = new ReflectionProperty($component, 'isLive');
+    $reflection->setAccessible(true);
+
+    return (bool) $reflection->getValue($component);
 }
 
 it('builds a schema with the expected child component types by default', function (): void {
@@ -64,18 +107,16 @@ it('hides the map panel by default', function (): void {
 });
 
 it('reveals the map panel when showMap=true', function (): void {
-    $types = array_map(fn ($c) => $c::class, AddressInput::componentSchema(showMap: true));
+    $schema = AddressInput::componentSchema(showMap: true);
+    $map = findComponentByClass($schema, MapLocationField::class);
 
-    expect($types)->toContain(MapLocationField::class);
+    expect($map)->not->toBeNull();
 });
 
 it('omits the GooglePlacesAutocomplete when disabled', function (): void {
-    $types = array_map(
-        fn ($c) => $c::class,
-        AddressInput::componentSchema(showGooglePlacesAutocomplete: false),
-    );
+    $schema = AddressInput::componentSchema(showGooglePlacesAutocomplete: false);
 
-    expect($types)->not->toContain(GooglePlacesAutocomplete::class);
+    expect(findComponentByClass($schema, GooglePlacesAutocomplete::class))->toBeNull();
 });
 
 it('omits the validate_address toggle when disabled', function (): void {
@@ -93,9 +134,52 @@ it('exposes the W3C / libaddressinput column names as field names', function ():
         ->and($names)->toContain('administrative_area')
         ->and($names)->toContain('postal_code')
         ->and($names)->toContain('country_code')
-        ->and($names)->toContain('delivery_instructions');
+        ->and($names)->toContain('delivery_instructions')
+        ->and($names)->toContain('freeform_address');
 });
 
 it('exposes a composite-level rule() returning a ValidAddress instance', function (): void {
     expect(AddressInput::rule())->toBeInstanceOf(ValidAddress::class);
+});
+
+it('wires GooglePlacesAutocomplete populate map for canonical fields', function (): void {
+    $schema = AddressInput::componentSchema();
+    $autocomplete = findComponentByClass($schema, GooglePlacesAutocomplete::class);
+
+    expect($autocomplete)->not->toBeNull()
+        ->and($autocomplete->getFieldsToPopulate())->toBe(AddressFieldNames::canonical()->googlePlacesPopulateMap());
+});
+
+it('wires GooglePlacesAutocomplete populate map for flat fields', function (): void {
+    $schema = AddressInput::flatComponentSchema(showMap: false);
+    $autocomplete = findComponentByClass($schema, GooglePlacesAutocomplete::class);
+
+    expect($autocomplete)->not->toBeNull()
+        ->and($autocomplete->getFieldsToPopulate())->toBe(AddressFieldNames::flat()->googlePlacesPopulateMap());
+});
+
+it('marks validate_address and map location as live for reactive updates', function (): void {
+    $schema = AddressInput::componentSchema(showMap: true);
+    $toggle = findComponentByClass($schema, Toggle::class);
+    $map = findComponentByClass($schema, MapLocationField::class);
+
+    expect($toggle)->not->toBeNull()
+        ->and(componentIsLive($toggle))->toBeTrue()
+        ->and($map)->not->toBeNull()
+        ->and(componentIsLive($map))->toBeTrue();
+});
+
+it('flatComponentSchema uses legacy flat field names', function (): void {
+    $names = fieldNamesIn(AddressInput::flatComponentSchema(showMap: false));
+
+    expect($names)->toContain('street_line_1')
+        ->and($names)->toContain('city')
+        ->and($names)->toContain('state')
+        ->and($names)->toContain('zip')
+        ->and($names)->toContain('country_iso2')
+        ->and($names)->not->toContain('recipient');
+});
+
+it('embeddedSchema matches canonical componentSchema field names', function (): void {
+    expect(fieldNamesIn(AddressInput::embeddedSchema()))->toBe(fieldNamesIn(AddressInput::componentSchema()));
 });

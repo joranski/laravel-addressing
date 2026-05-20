@@ -34,9 +34,9 @@
             initMap() {
                 if (this.map) return; // Prevent double init
 
-                // Default location (Company HQ or generic fallback)
-                let defaultLat = {{ config('company.latitude', 40.7128) }};
-                let defaultLng = {{ config('company.longitude', -74.0060) }};
+                // Default location when form state has no coordinates yet
+                let defaultLat = {{ config('addressing.default_map_center.lat', 40.7128) }};
+                let defaultLng = {{ config('addressing.default_map_center.lng', -74.0060) }};
 
                 let lat = this.state?.lat || defaultLat;
                 let lng = this.state?.lng || defaultLng;
