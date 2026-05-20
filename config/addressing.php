@@ -57,4 +57,21 @@ return [
         'lng' => -74.0060,
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Country Flag Display (Filament Select labels)
+    |--------------------------------------------------------------------------
+    |
+    | Unicode emoji flags (display: emoji) use regional-indicator characters.
+    | Windows often renders those as two letters (e.g. "US") instead of a colored
+    | flag because Segoe UI Emoji lacks flag glyphs. SVG mode (default) loads small
+    | flag images from a CDN and works on all platforms.
+    |
+    | Supported: svg (default), emoji, none
+    */
+    'country_flags' => [
+        'display' => env('ADDRESSING_COUNTRY_FLAG_DISPLAY', 'svg'),
+        'svg_cdn_url' => 'https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.2.3/flags/4x3/%s.svg',
+    ],
+
 ];

@@ -35,14 +35,7 @@ final class CountrySelectOptions
 
         $label = sprintf('%s (%s)', $country->name, $codes);
 
-        // Windows may show regional-indicator letters instead of a graphical flag; see CountryFlagEmoji.
-        $flag = CountryFlagEmoji::fromIso2($country->iso2);
-
-        if ($flag !== null) {
-            return $flag.' '.$label;
-        }
-
-        return $label;
+        return CountryFlagEmoji::labelPrefix($country->iso2).$label;
     }
 
     public static function labelFor(?string $iso2): ?string

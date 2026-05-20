@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 use CommerceGuys\Addressing\Subdivision\SubdivisionRepository;
 use Joranski\Addressing\Models\Country;
+use Joranski\Addressing\Support\CountryFlagEmoji;
 use Joranski\Addressing\Support\CountrySelectOptions;
 use Joranski\Addressing\Support\SubdivisionSelectOptions;
 
 it('formats country labels with generated flag emoji and iso codes', function (): void {
+    config(['addressing.country_flags.display' => CountryFlagEmoji::DISPLAY_EMOJI]);
+
     $country = new Country([
         'iso2' => 'US',
         'iso3' => 'USA',
@@ -18,7 +21,23 @@ it('formats country labels with generated flag emoji and iso codes', function ()
         ->toBe('🇺🇸 United States (US · USA)');
 });
 
+it('formats country labels with svg flags by default', function (): void {
+    config(['addressing.country_flags.display' => CountryFlagEmoji::DISPLAY_SVG]);
+
+    $country = new Country([
+        'iso2' => 'US',
+        'iso3' => 'USA',
+        'name' => 'United States',
+    ]);
+
+    expect(CountrySelectOptions::formatLabel($country))
+        ->toContain('<img')
+        ->toContain('United States (US · USA)');
+});
+
 it('finds countries by iso2 iso3 or name when searching', function (): void {
+    config(['addressing.country_flags.display' => CountryFlagEmoji::DISPLAY_EMOJI]);
+
     $country = Country::factory()->create([
         'iso2' => 'US',
         'iso3' => 'USA',

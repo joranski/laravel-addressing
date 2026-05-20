@@ -98,15 +98,29 @@ AddressInput::make('address')
 
 ## Country flags
 
-Country select labels are prefixed with Unicode flag emoji generated at runtime from the ISO2 code — **not** read from the database `countries.emoji` column.
+Country select labels include a flag prefix generated from the ISO2 code.
+
+**Default (`svg`):** small SVG images from the [lipis/flag-icons](https://github.com/lipis/flag-icons) CDN — works on **Windows, macOS, Linux, iOS, and Android**. Filament `allowHtml()` is enabled automatically for the country Select.
+
+**Why not Unicode emoji?** Flag emoji are two [Regional Indicator](https://unicode.org/reports/tr51/#Regional_Indicator_Symbols) codepoints. Windows Segoe UI Emoji often renders them as plain letters (`US`) instead of a colored flag. Set `display` to `emoji` if you prefer Unicode on platforms that support it.
+
+```php
+// config/addressing.php
+'country_flags' => [
+    'display' => env('ADDRESSING_COUNTRY_FLAG_DISPLAY', 'svg'), // svg | emoji | none
+    'svg_cdn_url' => 'https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.2.3/flags/4x3/%s.svg',
+],
+```
+
+Programmatic use:
 
 ```php
 use Joranski\Addressing\Support\CountryFlagEmoji;
 
-CountryFlagEmoji::fromIso2('US'); // 🇺🇸
+CountryFlagEmoji::fromIso2('US');      // Unicode 🇺🇸 (emoji mode / helpers)
+CountryFlagEmoji::svgUrl('US');        // CDN URL for SVG flag
+CountryFlagEmoji::labelPrefix('US');   // Prefix for Select labels (respects config)
 ```
-
-Implementation uses `mb_ord` / `mb_chr` with the regional-indicator offset (`127397`). On **Windows**, many systems render these as two-letter regional indicators (e.g. `US`) rather than a colored flag, due to OS font limitations. macOS, Linux, iOS, and Android typically show the graphical flag.
 
 ## Google Places populate
 

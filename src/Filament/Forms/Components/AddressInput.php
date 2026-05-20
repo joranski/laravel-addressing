@@ -13,6 +13,7 @@ use Joranski\Addressing\Enums\AddressFormLayout;
 use Joranski\Addressing\Filament\Rules\ValidAddress;
 use Joranski\Addressing\Services\AddressFormatValidator;
 use Joranski\Addressing\Support\AddressFieldNames;
+use Joranski\Addressing\Support\CountryFlagEmoji;
 use Joranski\Addressing\Support\CountrySelectOptions;
 use Joranski\Addressing\Support\GooglePlacesAdministrativeAreaResolver;
 use Joranski\Addressing\Support\SubdivisionSelectOptions;
@@ -249,6 +250,7 @@ class AddressInput extends Section
             ->searchPrompt('Search by country name, ISO code, or abbreviation')
             ->getSearchResultsUsing(fn (?string $search): array => CountrySelectOptions::search(search: $search))
             ->getOptionLabelUsing(fn (?string $value): ?string => CountrySelectOptions::labelFor(iso2: $value))
+            ->allowHtml(fn (): bool => CountryFlagEmoji::usesHtmlLabels())
             ->live()
             ->partiallyRenderComponentsAfterStateUpdated([$names->administrativeArea])
             ->afterStateUpdated(function (?string $state, Set $set, Get $get, mixed $old) use ($names): void {
