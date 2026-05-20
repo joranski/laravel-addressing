@@ -83,74 +83,52 @@
 
                     const fieldPath = (field) => basePath + '.' + field;
 
-                    const setVal = (field, value, live = true) => {
+                    const setVal = (field, value) => {
                         if (value === null || value === undefined || value === '') {
-                            return Promise.resolve();
+                            return;
                         }
 
-                        return $wire.$set(fieldPath(field), value, live);
+                        $wire.$set(fieldPath(field), value, false);
                     };
 
-                    const countryField = populateMap['country_iso2'];
-                    const stateField = populateMap['state'];
-                    const countryChanged = countryField
-                        && countryValue
-                        && $wire.$get(fieldPath(countryField)) !== countryValue;
+                    if (populateMap['street_line_1']) {
+                        setVal(populateMap['street_line_1'], fullStreet);
+                    }
 
-                    const setState = () => {
-                        if (! stateField || ! stateValue) {
-                            return Promise.resolve();
+                    if (populateMap['city']) {
+                        setVal(populateMap['city'], address.locality);
+                    }
+
+                    if (populateMap['zip']) {
+                        setVal(populateMap['zip'], address.postal_code);
+                    }
+
+                    if (populateMap['country_iso2']) {
+                        setVal(populateMap['country_iso2'], countryValue);
+                    }
+
+                    if (populateMap['state']) {
+                        setVal(populateMap['state'], stateValue);
+                    }
+
+                    if (place.geometry && place.geometry.location) {
+                        if (populateMap['latitude']) {
+                            setVal(populateMap['latitude'], place.geometry.location.lat());
                         }
 
-                        return setVal(stateField, stateValue, true);
-                    };
-
-                    const populateDependentFields = () => {
-                        const tasks = [];
-
-                        if (populateMap['street_line_1']) {
-                            tasks.push(setVal(populateMap['street_line_1'], fullStreet, false));
+                        if (populateMap['longitude']) {
+                            setVal(populateMap['longitude'], place.geometry.location.lng());
                         }
 
-                        if (populateMap['city']) {
-                            tasks.push(setVal(populateMap['city'], address.locality, false));
+                        if (populateMap['location']) {
+                            setVal(populateMap['location'], {
+                                lat: place.geometry.location.lat(),
+                                lng: place.geometry.location.lng(),
+                            });
                         }
+                    }
 
-                        if (populateMap['zip']) {
-                            tasks.push(setVal(populateMap['zip'], address.postal_code, false));
-                        }
-
-                        if (place.geometry && place.geometry.location) {
-                            if (populateMap['latitude']) {
-                                tasks.push(setVal(populateMap['latitude'], place.geometry.location.lat(), false));
-                            }
-
-                            if (populateMap['longitude']) {
-                                tasks.push(setVal(populateMap['longitude'], place.geometry.location.lng(), false));
-                            }
-
-                            if (populateMap['location']) {
-                                tasks.push(setVal(populateMap['location'], {
-                                    lat: place.geometry.location.lat(),
-                                    lng: place.geometry.location.lng(),
-                                }, false));
-                            }
-                        }
-
-                        return Promise.all(tasks);
-                    };
-
-                    populateDependentFields().then(() => {
-                        if (countryField && countryValue) {
-                            if (countryChanged) {
-                                return setVal(countryField, countryValue, true).then(() => setState());
-                            }
-
-                            return setState();
-                        }
-
-                        return setState();
-                    });
+                    $wire.$commit();
                 });
             },
             resolveAdministrativeArea(address) {
