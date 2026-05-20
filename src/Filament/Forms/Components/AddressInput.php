@@ -14,6 +14,7 @@ use Joranski\Addressing\Filament\Rules\ValidAddress;
 use Joranski\Addressing\Models\Country;
 use Joranski\Addressing\Services\AddressFormatValidator;
 use Joranski\Addressing\Support\AddressFieldNames;
+use Joranski\Addressing\Support\GooglePlacesAdministrativeAreaResolver;
 use CommerceGuys\Addressing\Subdivision\SubdivisionRepository;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -246,10 +247,24 @@ class AddressInput extends Section
             ->searchable()
             ->live()
             ->partiallyRenderComponentsAfterStateUpdated([$names->administrativeArea])
-            ->afterStateUpdated(function (?string $state, Set $set, mixed $old) use ($names): void {
-                if ((string) $state !== (string) $old) {
-                    $set($names->administrativeArea, null);
+            ->afterStateUpdated(function (?string $state, Set $set, Get $get, mixed $old) use ($names): void {
+                if ((string) $state === (string) $old || $state === null || $state === '') {
+                    return;
                 }
+
+                $adminArea = $get($names->administrativeArea);
+                if ($adminArea === null || $adminArea === '') {
+                    return;
+                }
+
+                if (GooglePlacesAdministrativeAreaResolver::isValidSubdivisionCode(
+                    countryCode: $state,
+                    code: $adminArea,
+                )) {
+                    return;
+                }
+
+                $set($names->administrativeArea, null);
             });
 
         $schema[] = $countryField;
