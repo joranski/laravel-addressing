@@ -51,6 +51,23 @@ it('finds countries by iso2 iso3 or name when searching', function (): void {
         ->toBe('🇺🇸 United States (US · USA)');
 });
 
+it('formats plain country labels without html for table filters', function (): void {
+    config(['addressing.country_flags.display' => CountryFlagEmoji::DISPLAY_SVG]);
+
+    $country = Country::factory()->create([
+        'iso2' => 'US',
+        'iso3' => 'USA',
+        'name' => 'United States',
+    ]);
+
+    expect(CountrySelectOptions::formatPlainLabel($country))
+        ->toBe('United States (US · USA)')
+        ->and(CountrySelectOptions::searchPlain(search: 'United')['US'] ?? null)
+        ->toBe('United States (US · USA)')
+        ->and(CountrySelectOptions::searchPlain(search: 'United')['US'])
+        ->not->toContain('<img');
+});
+
 it('formats subdivision labels with name and code', function (): void {
     $subdivisions = (new SubdivisionRepository)->getAll(['US']);
     $arizona = $subdivisions['AZ'];
@@ -66,6 +83,13 @@ it('finds subdivisions by code or full name when searching', function (): void {
         ->toHaveKey('AZ')
         ->and(SubdivisionSelectOptions::labelFor(countryCode: 'US', code: 'AZ'))
         ->toBe('Arizona (AZ)');
+});
+
+it('resolves subdivision codes from free-text admin-area filter searches', function (): void {
+    expect(SubdivisionSelectOptions::matchingCodes(search: 'Arizona', countryCodes: ['US']))
+        ->toContain('AZ')
+        ->and(SubdivisionSelectOptions::matchingCodes(search: 'AZ', countryCodes: ['US']))
+        ->toContain('AZ');
 });
 
 it('formats italian provinces using commerceguys names', function (): void {

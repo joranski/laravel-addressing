@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Joranski\Addressing\Support;
 
+use Joranski\Addressing\Models\Country;
 use CommerceGuys\Addressing\AddressFormat\AddressFormatRepository;
 use CommerceGuys\Addressing\AddressFormat\AddressField;
 use CommerceGuys\Addressing\Subdivision\Subdivision;
@@ -138,6 +139,54 @@ final class SubdivisionSelectOptions
         }
 
         return $matches;
+    }
+
+    /**
+     * Resolve subdivision codes matching a free-text admin-area filter.
+     *
+     * @param  list<string>|null  $countryCodes
+     * @return list<string>
+     */
+    public static function matchingCodes(string $search, ?array $countryCodes = null): array
+    {
+        $search = trim($search);
+
+        if ($search === '') {
+            return [];
+        }
+
+        $needle = mb_strtolower($search);
+        $matches = [];
+
+        foreach (self::countriesToSearch(countryCodes: $countryCodes) as $countryCode) {
+            foreach (self::optionsForCountry($countryCode) as $code => $label) {
+                if (! self::matchesSearch(code: (string) $code, label: $label, needle: $needle)) {
+                    continue;
+                }
+
+                $matches[] = (string) $code;
+            }
+        }
+
+        return array_values(array_unique($matches));
+    }
+
+    /**
+     * @param  list<string>|null  $countryCodes
+     * @return list<string>
+     */
+    private static function countriesToSearch(?array $countryCodes): array
+    {
+        if (filled($countryCodes)) {
+            return array_values(array_unique($countryCodes));
+        }
+
+        return Country::query()
+            ->orderBy('name')
+            ->pluck('iso2')
+            ->filter(fn (string $iso2): bool => self::hasOptionsForCountry($iso2))
+            ->values()
+            ->all();
     }
 
     private static function matchesSearch(string $code, string $label, string $needle): bool

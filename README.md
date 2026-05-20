@@ -17,6 +17,7 @@ Universal address handling for Laravel applications — offline format validatio
 
 - **`AddressInput`** — drop-in address section with optional Google Places autocomplete, map pin, and external verification toggle
 - **`AddressColumn`** / **`AddressEntry`** — read-only table and infolist display
+- **`AddressTable`** — portable Filament table with above-content filters and column manager
 - **`ValidAddress`** — composite validation rule wired to `AddressFormatValidator` and optional verifiers
 - **Country select** — searchable by name, ISO2, or ISO3; labels prefixed with dynamically generated Unicode flag emoji
 - **State / Province select** — country-dependent subdivisions from commerceguys; searchable by full name or abbreviation (e.g. `Arizona` / `AZ`, `Forlì-Cesena` / `FC`)
@@ -95,6 +96,30 @@ use Joranski\Addressing\Filament\Forms\Components\AddressInput;
 AddressInput::make('address')
     ->rule(AddressInput::rule());
 ```
+
+### Filament — address table
+
+Portable list/table definition with above-content filters and a rich column manager:
+
+```php
+use Joranski\Addressing\Filament\Tables\AddressTable;
+
+AddressTable::configure($table);
+
+// Global address index — include morph owner columns:
+AddressTable::configure($table, showAddressableColumn: true);
+
+// Relation managers — hide redundant owner columns:
+AddressTable::configure($table, showAddressableColumn: false);
+```
+
+**Default visible columns:** formatted address (with verdict icon), city, state/province, postal code, country, verdict badge.
+
+**Toggleable (hidden by default):** label, recipient, organization, line 1/2, street, neighborhood, sorting code, county, delivery instructions, coordinates, verifier metadata, UUID/legacy IDs, timestamps, and (optionally) verification flags (`business`, `residential`, `PO box`, component-quality icons).
+
+**Filters (above table):** country, verdict, city, state/province, postal code, label, recipient, organization, plus ternary filters for validation/deliverability flags when verification columns are enabled.
+
+**Primary column:** `AddressColumn` with country-aware formatting and optional verdict glyph — use `AddressColumn::make('address')` on related models or standalone rows.
 
 ## Country flags
 
