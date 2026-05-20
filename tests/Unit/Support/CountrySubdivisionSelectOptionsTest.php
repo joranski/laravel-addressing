@@ -76,3 +76,21 @@ it('formats italian provinces using commerceguys names', function (): void {
         ->and(SubdivisionSelectOptions::labelFor(countryCode: 'IT', code: 'FC'))
         ->toBe('Forlì-Cesena (FC)');
 });
+
+it('knows iraq requires administrative area but has no subdivision catalog', function (): void {
+    expect(SubdivisionSelectOptions::countryUsesAdministrativeArea('IQ'))->toBeTrue()
+        ->and(SubdivisionSelectOptions::countryRequiresAdministrativeArea('IQ'))->toBeTrue()
+        ->and(SubdivisionSelectOptions::hasOptionsForCountry('IQ'))->toBeFalse()
+        ->and(SubdivisionSelectOptions::shouldUseSubdivisionSelect('IQ'))->toBeFalse();
+});
+
+it('knows great britain does not use administrative area in its address format', function (): void {
+    expect(SubdivisionSelectOptions::countryUsesAdministrativeArea('GB'))->toBeFalse()
+        ->and(SubdivisionSelectOptions::hasOptionsForCountry('GB'))->toBeFalse()
+        ->and(SubdivisionSelectOptions::shouldUseSubdivisionSelect('GB'))->toBeFalse();
+});
+
+it('uses subdivision select for countries with a catalog', function (): void {
+    expect(SubdivisionSelectOptions::shouldUseSubdivisionSelect('US'))->toBeTrue()
+        ->and(SubdivisionSelectOptions::shouldUseSubdivisionSelect('IT'))->toBeTrue();
+});

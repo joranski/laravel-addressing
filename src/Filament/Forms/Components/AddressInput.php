@@ -42,6 +42,8 @@ use Filament\Schemas\Components\Utilities\Set;
  */
 class AddressInput extends Section
 {
+    public const LOCATION_GRID_KEY = 'address-location-grid';
+
     protected bool $showMap = false;
 
     protected bool $showGooglePlacesAutocomplete = true;
@@ -252,7 +254,7 @@ class AddressInput extends Section
             ->getOptionLabelUsing(fn (?string $value): ?string => CountrySelectOptions::labelFor(iso2: $value))
             ->allowHtml(fn (): bool => CountryFlagEmoji::usesHtmlLabels())
             ->live()
-            ->partiallyRenderComponentsAfterStateUpdated([$names->administrativeArea])
+            ->partiallyRenderComponentsAfterStateUpdated([self::LOCATION_GRID_KEY])
             ->afterStateUpdated(function (?string $state, Set $set, Get $get, mixed $old) use ($names): void {
                 if ((string) $state === (string) $old || $state === null || $state === '') {
                     return;
@@ -276,29 +278,51 @@ class AddressInput extends Section
         $schema[] = $countryField;
 
         if ($names->useSubdivisionSelect) {
-            $adminField = Select::make($names->administrativeArea)
-                ->label('State / Province')
-                ->options(function (Get $get) use ($names): array {
-                    return SubdivisionSelectOptions::optionsForCountry(
-                        countryCode: $get($names->countryCode) ?? 'US',
-                    );
-                })
-                ->searchable()
-                ->searchValues()
-                ->searchPrompt('Search by name or abbreviation')
-                ->getSearchResultsUsing(function (Get $get, ?string $search) use ($names): array {
-                    return SubdivisionSelectOptions::search(
-                        countryCode: $get($names->countryCode) ?? 'US',
-                        search: $search,
-                    );
-                })
-                ->getOptionLabelUsing(function (Get $get, ?string $value) use ($names): ?string {
-                    return SubdivisionSelectOptions::labelFor(
-                        countryCode: $get($names->countryCode) ?? 'US',
-                        code: $value,
-                    );
-                })
-                ->live();
+            $countryCode = fn (Get $get): ?string => $get($names->countryCode) ?? 'US';
+
+            $adminField = Group::make()
+                ->schema(function (Get $get) use ($names, $countryCode): array {
+                    if (! SubdivisionSelectOptions::countryUsesAdministrativeArea(countryCode: $countryCode($get))) {
+                        return [];
+                    }
+
+                    if (SubdivisionSelectOptions::hasOptionsForCountry(countryCode: $countryCode($get))) {
+                        return [
+                            Select::make($names->administrativeArea)
+                                ->label('State / Province')
+                                ->options(fn (Get $get): array => SubdivisionSelectOptions::optionsForCountry(
+                                    countryCode: $get($names->countryCode) ?? 'US',
+                                ))
+                                ->searchable()
+                                ->searchValues()
+                                ->searchPrompt('Search by name or abbreviation')
+                                ->getSearchResultsUsing(function (Get $get, ?string $search) use ($names): array {
+                                    return SubdivisionSelectOptions::search(
+                                        countryCode: $get($names->countryCode) ?? 'US',
+                                        search: $search,
+                                    );
+                                })
+                                ->getOptionLabelUsing(function (Get $get, ?string $value) use ($names): ?string {
+                                    return SubdivisionSelectOptions::labelFor(
+                                        countryCode: $get($names->countryCode) ?? 'US',
+                                        code: $value,
+                                    );
+                                })
+                                ->required(fn (Get $get): bool => SubdivisionSelectOptions::countryRequiresAdministrativeArea(
+                                    countryCode: $countryCode($get),
+                                )),
+                        ];
+                    }
+
+                    return [
+                        TextInput::make($names->administrativeArea)
+                            ->label('State / Province')
+                            ->maxLength(100)
+                            ->required(fn (Get $get): bool => SubdivisionSelectOptions::countryRequiresAdministrativeArea(
+                                countryCode: $countryCode($get),
+                            )),
+                    ];
+                });
         } else {
             $adminField = TextInput::make($names->administrativeArea)
                 ->label('State / Province')
@@ -306,11 +330,40 @@ class AddressInput extends Section
                 ->live(onBlur: false);
         }
 
-        $schema[] = Grid::make(3)->schema([
-            $localityField,
-            $adminField,
-            $postalField,
-        ]);
+        $schema[] = Group::make()
+            ->key(self::LOCATION_GRID_KEY)
+            ->schema(function (Get $get) use ($names, $localityField, $postalField, $adminField): array {
+                if ($names->useSubdivisionSelect) {
+                    $usesAdminArea = SubdivisionSelectOptions::countryUsesAdministrativeArea(
+                        countryCode: $get($names->countryCode) ?? 'US',
+                    );
+
+                    if ($usesAdminArea) {
+                        return [
+                            Grid::make(3)->schema([
+                                $localityField,
+                                $adminField,
+                                $postalField,
+                            ]),
+                        ];
+                    }
+
+                    return [
+                        Grid::make(2)->schema([
+                            $localityField,
+                            $postalField,
+                        ]),
+                    ];
+                }
+
+                return [
+                    Grid::make(3)->schema([
+                        $localityField,
+                        $adminField,
+                        $postalField,
+                    ]),
+                ];
+            });
 
         $schema[] = Textarea::make($names->deliveryInstructions)
             ->label('Delivery instructions (optional)')

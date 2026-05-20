@@ -134,7 +134,15 @@ When Google Places autocomplete is enabled, selecting a result:
 
 **Country** — search by `United`, `US`, or `USA`; labels look like `🇺🇸 United States (US · USA)`.
 
-**State / Province** — search by full name or code; labels look like `Arizona (AZ)`. Options refresh when the country changes.
+**State / Province** — behaviour depends on the selected country:
+
+| Situation | UI | Example countries |
+|-----------|-----|-------------------|
+| Subdivision catalog available | Searchable **Select** (`Arizona (AZ)`) | US, IT, CA, AU, … |
+| Admin area required, no catalog | Free-text **TextInput** | IQ (governorate), … |
+| Admin area not in address format | Field **hidden** | GB, DE, FR, … |
+
+commerceguys/addressing drives this: Iraq (`IQ`) requires an administrative area but ships **zero** subdivisions in the dataset, so users type the governorate manually instead of picking from an empty dropdown.
 
 ## Testing
 

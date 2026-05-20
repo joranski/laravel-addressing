@@ -215,15 +215,16 @@ it('omits the validate_address toggle when disabled', function (): void {
 
 it('exposes the W3C / libaddressinput column names as field names', function (): void {
     $names = fieldNamesIn(AddressInput::componentSchema());
+    $canonical = AddressFieldNames::canonical();
 
     expect($names)->toContain('address_line1')
         ->and($names)->toContain('address_line2')
-        ->and($names)->toContain('locality')
-        ->and($names)->toContain('administrative_area')
-        ->and($names)->toContain('postal_code')
         ->and($names)->toContain('country_code')
         ->and($names)->toContain('delivery_instructions')
-        ->and($names)->toContain('freeform_address');
+        ->and($names)->toContain('freeform_address')
+        ->and($canonical->locality)->toBe('locality')
+        ->and($canonical->postalCode)->toBe('postal_code')
+        ->and($canonical->administrativeArea)->toBe('administrative_area');
 });
 
 it('exposes a composite-level rule() returning a ValidAddress instance', function (): void {
@@ -259,43 +260,65 @@ it('marks validate_address and map location as live for reactive updates', funct
 
 it('flatComponentSchema uses legacy flat field names', function (): void {
     $names = fieldNamesIn(AddressInput::flatComponentSchema(showMap: false));
+    $flat = AddressFieldNames::flat();
 
     expect($names)->toContain('street_line_1')
-        ->and($names)->toContain('city')
-        ->and($names)->toContain('state')
-        ->and($names)->toContain('zip')
-        ->and($names)->toContain('country_iso2')
-        ->and($names)->not->toContain('recipient');
+        ->and($names)->not->toContain('recipient')
+        ->and($flat->locality)->toBe('city')
+        ->and($flat->administrativeArea)->toBe('state')
+        ->and($flat->postalCode)->toBe('zip')
+        ->and($flat->countryCode)->toBe('country_iso2');
 });
 
 it('embeddedSchema matches canonical componentSchema field names', function (): void {
     expect(fieldNamesIn(AddressInput::embeddedSchema()))->toBe(fieldNamesIn(AddressInput::componentSchema()));
 });
 
-it('places country before city state and postal fields', function (): void {
-    $order = schemaFieldOrder(AddressInput::componentSchema());
+function componentKey(object $component): ?string
+{
+    if (! property_exists($component, 'key')) {
+        return null;
+    }
 
-    expect(array_search('country_code', $order, true))
-        ->toBeLessThan(array_search('locality', $order, true))
-        ->and(array_search('country_code', $order, true))
-        ->toBeLessThan(array_search('administrative_area', $order, true));
+    $reflection = new ReflectionProperty($component, 'key');
+    $reflection->setAccessible(true);
+    $key = $reflection->getValue($component);
+
+    return is_string($key) ? $key : null;
+}
+
+it('places country before the location grid', function (): void {
+    $schema = AddressInput::componentSchema();
+    $countryIndex = null;
+    $locationGridIndex = null;
+
+    foreach ($schema as $index => $component) {
+        if ($component instanceof Select && $component->getName() === 'country_code') {
+            $countryIndex = $index;
+        }
+
+        if ($component instanceof Group && componentKey($component) === AddressInput::LOCATION_GRID_KEY) {
+            $locationGridIndex = $index;
+        }
+    }
+
+    expect($countryIndex)->not->toBeNull()
+        ->and($locationGridIndex)->not->toBeNull()
+        ->and($countryIndex)->toBeLessThan($locationGridIndex);
 });
 
-it('re-renders administrative area when country changes', function (): void {
+it('re-renders the location grid when country changes', function (): void {
     $schema = AddressInput::componentSchema();
     $country = findSelectByName($schema, 'country_code');
 
     expect($country)->not->toBeNull()
-        ->and(partiallyRenderedComponentsAfterStateUpdated($country))->toBe(['administrative_area']);
+        ->and(partiallyRenderedComponentsAfterStateUpdated($country))->toBe([AddressInput::LOCATION_GRID_KEY]);
 });
 
-it('allows searching country and subdivision selects by code or label', function (): void {
+it('allows searching the country select by code or label', function (): void {
     $schema = AddressInput::componentSchema();
     $country = findSelectByName($schema, 'country_code');
-    $admin = findSelectByName($schema, 'administrative_area');
 
     expect($country)->not->toBeNull()
-        ->and(shouldSearchValues($country))->toBeTrue()
-        ->and($admin)->not->toBeNull()
-        ->and(shouldSearchValues($admin))->toBeTrue();
+        ->and(shouldSearchValues($country))->toBeTrue();
 });

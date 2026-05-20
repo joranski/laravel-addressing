@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Joranski\Addressing\Support;
 
+use CommerceGuys\Addressing\AddressFormat\AddressFormatRepository;
+use CommerceGuys\Addressing\AddressFormat\AddressField;
 use CommerceGuys\Addressing\Subdivision\Subdivision;
 use CommerceGuys\Addressing\Subdivision\SubdivisionRepository;
 use Throwable;
@@ -35,6 +37,47 @@ final class SubdivisionSelectOptions
         }
 
         return $options;
+    }
+
+    public static function hasOptionsForCountry(?string $countryCode): bool
+    {
+        return self::optionsForCountry($countryCode) !== [];
+    }
+
+    public static function countryUsesAdministrativeArea(?string $countryCode): bool
+    {
+        if ($countryCode === null || $countryCode === '') {
+            return false;
+        }
+
+        try {
+            $format = (new AddressFormatRepository)->get($countryCode);
+        } catch (Throwable) {
+            return false;
+        }
+
+        return in_array(AddressField::ADMINISTRATIVE_AREA, $format->getUsedFields(), true);
+    }
+
+    public static function countryRequiresAdministrativeArea(?string $countryCode): bool
+    {
+        if ($countryCode === null || $countryCode === '') {
+            return false;
+        }
+
+        try {
+            $format = (new AddressFormatRepository)->get($countryCode);
+        } catch (Throwable) {
+            return false;
+        }
+
+        return in_array(AddressField::ADMINISTRATIVE_AREA, $format->getRequiredFields(), true);
+    }
+
+    public static function shouldUseSubdivisionSelect(?string $countryCode): bool
+    {
+        return self::countryUsesAdministrativeArea($countryCode)
+            && self::hasOptionsForCountry($countryCode);
     }
 
     public static function formatLabel(string $code, Subdivision $subdivision): string
