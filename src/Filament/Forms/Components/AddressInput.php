@@ -11,11 +11,11 @@ use Closure;
 use Joranski\Addressing\Contracts\AddressVerifier;
 use Joranski\Addressing\Enums\AddressFormLayout;
 use Joranski\Addressing\Filament\Rules\ValidAddress;
-use Joranski\Addressing\Models\Country;
 use Joranski\Addressing\Services\AddressFormatValidator;
 use Joranski\Addressing\Support\AddressFieldNames;
+use Joranski\Addressing\Support\CountrySelectOptions;
 use Joranski\Addressing\Support\GooglePlacesAdministrativeAreaResolver;
-use CommerceGuys\Addressing\Subdivision\SubdivisionRepository;
+use Joranski\Addressing\Support\SubdivisionSelectOptions;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -241,10 +241,14 @@ class AddressInput extends Section
 
         $countryField = Select::make($names->countryCode)
             ->label('Country')
-            ->options(fn (): array => Country::query()->orderBy('name')->pluck('name', 'iso2')->all())
+            ->options(fn (): array => CountrySelectOptions::all())
             ->default('US')
             ->required()
             ->searchable()
+            ->searchValues()
+            ->searchPrompt('Search by country name, ISO code, or abbreviation')
+            ->getSearchResultsUsing(fn (?string $search): array => CountrySelectOptions::search(search: $search))
+            ->getOptionLabelUsing(fn (?string $value): ?string => CountrySelectOptions::labelFor(iso2: $value))
             ->live()
             ->partiallyRenderComponentsAfterStateUpdated([$names->administrativeArea])
             ->afterStateUpdated(function (?string $state, Set $set, Get $get, mixed $old) use ($names): void {
@@ -273,16 +277,25 @@ class AddressInput extends Section
             $adminField = Select::make($names->administrativeArea)
                 ->label('State / Province')
                 ->options(function (Get $get) use ($names): array {
-                    $country = $get($names->countryCode) ?? 'US';
-                    $subdivisions = (new SubdivisionRepository)->getAll([$country]);
-                    $options = [];
-                    foreach ($subdivisions as $code => $subdivision) {
-                        $options[$code] = $subdivision->getLocalName() ?: (string) $code;
-                    }
-
-                    return $options;
+                    return SubdivisionSelectOptions::optionsForCountry(
+                        countryCode: $get($names->countryCode) ?? 'US',
+                    );
                 })
                 ->searchable()
+                ->searchValues()
+                ->searchPrompt('Search by name or abbreviation')
+                ->getSearchResultsUsing(function (Get $get, ?string $search) use ($names): array {
+                    return SubdivisionSelectOptions::search(
+                        countryCode: $get($names->countryCode) ?? 'US',
+                        search: $search,
+                    );
+                })
+                ->getOptionLabelUsing(function (Get $get, ?string $value) use ($names): ?string {
+                    return SubdivisionSelectOptions::labelFor(
+                        countryCode: $get($names->countryCode) ?? 'US',
+                        code: $value,
+                    );
+                })
                 ->live();
         } else {
             $adminField = TextInput::make($names->administrativeArea)

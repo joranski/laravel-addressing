@@ -160,6 +160,15 @@ function partiallyRenderedComponentsAfterStateUpdated(object $component): array
     return $reflection->getValue($component);
 }
 
+function shouldSearchValues(object $component): bool
+{
+    if (! method_exists($component, 'shouldSearchValues')) {
+        return false;
+    }
+
+    return (bool) $component->shouldSearchValues();
+}
+
 function componentIsLive(object $component): bool
 {
     $reflection = new ReflectionProperty($component, 'isLive');
@@ -278,4 +287,15 @@ it('re-renders administrative area when country changes', function (): void {
 
     expect($country)->not->toBeNull()
         ->and(partiallyRenderedComponentsAfterStateUpdated($country))->toBe(['administrative_area']);
+});
+
+it('allows searching country and subdivision selects by code or label', function (): void {
+    $schema = AddressInput::componentSchema();
+    $country = findSelectByName($schema, 'country_code');
+    $admin = findSelectByName($schema, 'administrative_area');
+
+    expect($country)->not->toBeNull()
+        ->and(shouldSearchValues($country))->toBeTrue()
+        ->and($admin)->not->toBeNull()
+        ->and(shouldSearchValues($admin))->toBeTrue();
 });
