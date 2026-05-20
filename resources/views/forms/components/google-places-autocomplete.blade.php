@@ -18,7 +18,7 @@
 
                 autocomplete.addListener('place_changed', () => {
                     const place = autocomplete.getPlace();
-                    
+
                     if (!place.geometry) {
                         return;
                     }
@@ -50,48 +50,71 @@
                         }
                     }
 
-                    // Map fields based on component configuration
                     const populateMap = @js($getFieldsToPopulate());
-                    
-                    // Simple logic to combine street number and route
                     const fullStreet = (address.street_number + ' ' + address.route).trim();
+                    const stateValue = address.administrative_area_level_1;
+                    const countryValue = address.country;
 
-                    // Helper to set values via wire
-                    const setVal = (field, value) => {
-                         // We assume the field path is relative to the current container or absolute ??
-                         // For now, let's assume specific field names are passed as keys relative to the same form container
-                         // We use $wire.set() but we need the full state path for those fields. 
-                         // However, typically in Filament custom components, if we want to update sibling fields,
-                         // we might need to know their state paths. 
-                         // A simpler approach for the user is just to pass the simple field name 'city' and we append it to the current container path or just using $wire.set on the data.
-                         
-                         // BUT: $getStatePath() usually looks like 'mountedActions.0.data.freeform_address'
-                         // So we can try to replace the last part.
-                         
-                         let currentPath = '{{ $getStatePath() }}';
-                         let parts = currentPath.split('.');
-                         parts.pop(); // remove 'freeform_address'
-                         let basePath = parts.join('.');
-                         
-                         $wire.set(basePath + '.' + field, value);
+                    let currentPath = '{{ $getStatePath() }}';
+                    let parts = currentPath.split('.');
+                    parts.pop();
+                    let basePath = parts.join('.');
+
+                    const setVal = (field, value, live = true) => {
+                        $wire.$set(basePath + '.' + field, value, live);
                     };
 
-                    if (populateMap['street_line_1']) setVal(populateMap['street_line_1'], fullStreet);
-                    if (populateMap['city']) setVal(populateMap['city'], address.locality);
-                    if (populateMap['state']) setVal(populateMap['state'], address.administrative_area_level_1);
-                    if (populateMap['zip']) setVal(populateMap['zip'], address.postal_code);
-                    if (populateMap['country_iso2']) setVal(populateMap['country_iso2'], address.country);
+                    if (populateMap['street_line_1']) {
+                        setVal(populateMap['street_line_1'], fullStreet, false);
+                    }
+
+                    if (populateMap['city']) {
+                        setVal(populateMap['city'], address.locality, false);
+                    }
+
+                    if (populateMap['zip']) {
+                        setVal(populateMap['zip'], address.postal_code, false);
+                    }
+
+                    const countryField = populateMap['country_iso2'];
+                    const stateField = populateMap['state'];
+                    const countryChanged = countryField
+                        && countryValue
+                        && $wire.$get(basePath + '.' + countryField) !== countryValue;
+
+                    const setState = () => {
+                        if (stateField && stateValue) {
+                            setVal(stateField, stateValue, true);
+                        }
+                    };
+
+                    if (countryField && countryValue) {
+                        if (countryChanged) {
+                            setVal(countryField, countryValue, true);
+                            this.$nextTick(() => {
+                                this.$nextTick(setState);
+                            });
+                        } else {
+                            setState();
+                        }
+                    } else {
+                        setState();
+                    }
 
                     if (place.geometry && place.geometry.location) {
-                        if (populateMap['latitude']) setVal(populateMap['latitude'], place.geometry.location.lat());
-                        if (populateMap['longitude']) setVal(populateMap['longitude'], place.geometry.location.lng());
-                        
-                        // Also update the MapLocationField 'location' if mapped
-                         if (populateMap['location']) {
+                        if (populateMap['latitude']) {
+                            setVal(populateMap['latitude'], place.geometry.location.lat(), false);
+                        }
+
+                        if (populateMap['longitude']) {
+                            setVal(populateMap['longitude'], place.geometry.location.lng(), false);
+                        }
+
+                        if (populateMap['location']) {
                             setVal(populateMap['location'], {
                                 lat: place.geometry.location.lat(),
-                                lng: place.geometry.location.lng()
-                            });
+                                lng: place.geometry.location.lng(),
+                            }, false);
                         }
                     }
                 });

@@ -81,6 +81,85 @@ function findComponentByClass(array $schema, string $class): ?object
     return null;
 }
 
+function findSelectByName(array $schema, string $name): ?Select
+{
+    foreach ($schema as $component) {
+        if (is_array($component)) {
+            $found = findSelectByName($component, $name);
+            if ($found !== null) {
+                return $found;
+            }
+
+            continue;
+        }
+        if ($component instanceof Select && method_exists($component, 'getName')) {
+            try {
+                if ($component->getName() === $name) {
+                    return $component;
+                }
+            } catch (Throwable) {
+                // Skip components without a resolvable name.
+            }
+        }
+        if ($component instanceof Grid || $component instanceof Group || $component instanceof Section) {
+            $reflection = new ReflectionProperty($component, 'childComponents');
+            $reflection->setAccessible(true);
+            $kids = $reflection->getValue($component);
+            if (is_array($kids)) {
+                $found = findSelectByName($kids, $name);
+                if ($found !== null) {
+                    return $found;
+                }
+            }
+        }
+    }
+
+    return null;
+}
+
+function schemaFieldOrder(array $schema): array
+{
+    $order = [];
+    foreach ($schema as $component) {
+        if (is_array($component)) {
+            $order = array_merge($order, schemaFieldOrder($component));
+
+            continue;
+        }
+        if (! is_object($component)) {
+            continue;
+        }
+        if (method_exists($component, 'getName')) {
+            try {
+                $name = $component->getName();
+                if ($name !== null) {
+                    $order[] = $name;
+                }
+            } catch (Throwable) {
+                // Container components may not expose a name; skip.
+            }
+        }
+        if ($component instanceof Grid || $component instanceof Group || $component instanceof Section) {
+            $reflection = new ReflectionProperty($component, 'childComponents');
+            $reflection->setAccessible(true);
+            $kids = $reflection->getValue($component);
+            if (is_array($kids)) {
+                $order = array_merge($order, schemaFieldOrder($kids));
+            }
+        }
+    }
+
+    return $order;
+}
+
+function partiallyRenderedComponentsAfterStateUpdated(object $component): array
+{
+    $reflection = new ReflectionProperty($component, 'componentsToPartiallyRenderAfterStateUpdated');
+    $reflection->setAccessible(true);
+
+    return $reflection->getValue($component);
+}
+
 function componentIsLive(object $component): bool
 {
     $reflection = new ReflectionProperty($component, 'isLive');
@@ -182,4 +261,21 @@ it('flatComponentSchema uses legacy flat field names', function (): void {
 
 it('embeddedSchema matches canonical componentSchema field names', function (): void {
     expect(fieldNamesIn(AddressInput::embeddedSchema()))->toBe(fieldNamesIn(AddressInput::componentSchema()));
+});
+
+it('places country before city state and postal fields', function (): void {
+    $order = schemaFieldOrder(AddressInput::componentSchema());
+
+    expect(array_search('country_code', $order, true))
+        ->toBeLessThan(array_search('locality', $order, true))
+        ->and(array_search('country_code', $order, true))
+        ->toBeLessThan(array_search('administrative_area', $order, true));
+});
+
+it('re-renders administrative area when country changes', function (): void {
+    $schema = AddressInput::componentSchema();
+    $country = findSelectByName($schema, 'country_code');
+
+    expect($country)->not->toBeNull()
+        ->and(partiallyRenderedComponentsAfterStateUpdated($country))->toBe(['administrative_area']);
 });

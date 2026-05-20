@@ -238,6 +238,22 @@ class AddressInput extends Section
             ->maxLength(25)
             ->live(onBlur: false);
 
+        $countryField = Select::make($names->countryCode)
+            ->label('Country')
+            ->options(fn (): array => Country::query()->orderBy('name')->pluck('name', 'iso2')->all())
+            ->default('US')
+            ->required()
+            ->searchable()
+            ->live()
+            ->partiallyRenderComponentsAfterStateUpdated([$names->administrativeArea])
+            ->afterStateUpdated(function (?string $state, Set $set, mixed $old) use ($names): void {
+                if ((string) $state !== (string) $old) {
+                    $set($names->administrativeArea, null);
+                }
+            });
+
+        $schema[] = $countryField;
+
         if ($names->useSubdivisionSelect) {
             $adminField = Select::make($names->administrativeArea)
                 ->label('State / Province')
@@ -265,15 +281,6 @@ class AddressInput extends Section
             $adminField,
             $postalField,
         ]);
-
-        $schema[] = Select::make($names->countryCode)
-            ->label('Country')
-            ->options(fn (): array => Country::query()->orderBy('name')->pluck('name', 'iso2')->all())
-            ->default('US')
-            ->required()
-            ->searchable()
-            ->live()
-            ->afterStateUpdated(fn (Set $set) => $set($names->administrativeArea, null));
 
         $schema[] = Textarea::make($names->deliveryInstructions)
             ->label('Delivery instructions (optional)')
