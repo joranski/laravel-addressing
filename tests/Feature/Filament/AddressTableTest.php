@@ -93,3 +93,14 @@ it('filters addresses by subdivision name or code', function (): void {
     expect($codeMatches)->toContain('Phoenix')
         ->not->toContain('Los Angeles');
 });
+
+it('defaults global list filters to above content and relation managers to dropdown', function (): void {
+    $configure = new ReflectionMethod(AddressTable::class, 'configure');
+    $filtersLayoutParam = collect($configure->getParameters())
+        ->first(fn (ReflectionParameter $parameter): bool => $parameter->getName() === 'filtersLayout');
+
+    expect($filtersLayoutParam)->not->toBeNull()
+        ->and($filtersLayoutParam->getDefaultValue())->toBe(\Filament\Tables\Enums\FiltersLayout::AboveContent);
+
+    expect(method_exists(AddressTable::class, 'configureForRelationManager'))->toBeTrue();
+});

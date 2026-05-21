@@ -109,15 +109,18 @@ AddressTable::configure($table);
 // Global address index — include morph owner columns:
 AddressTable::configure($table, showAddressableColumn: true);
 
-// Relation managers — hide redundant owner columns:
-AddressTable::configure($table, showAddressableColumn: false);
+// Relation managers — dropdown filters (default Filament placement):
+AddressTable::configureForRelationManager($table);
+
+// Or pass layout explicitly:
+AddressTable::configure($table, showAddressableColumn: false, filtersLayout: FiltersLayout::Dropdown);
 ```
 
 **Default visible columns:** formatted address (with verdict icon), city, state/province, postal code, country, verdict badge.
 
 **Toggleable (hidden by default):** label, recipient, organization, line 1/2, street, neighborhood, sorting code, county, delivery instructions, coordinates, verifier metadata, UUID/legacy IDs, timestamps, and (optionally) verification flags (`business`, `residential`, `PO box`, component-quality icons).
 
-**Filters (above table):** country, verdict, city, state/province, postal code, label, recipient, organization, plus ternary filters for validation/deliverability flags when verification columns are enabled.
+**Filters:** country, verdict, city, state/province, postal code, label, recipient, organization, plus ternary filters for validation/deliverability flags when verification columns are enabled. Global address lists use **above-content** filters; relation managers should use **`configureForRelationManager()`** for the standard dropdown filter trigger.
 
 **Primary column:** `AddressColumn` with country-aware formatting and optional verdict glyph — use `AddressColumn::make('address')` on related models or standalone rows.
 

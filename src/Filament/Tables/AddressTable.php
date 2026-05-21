@@ -28,8 +28,8 @@ use Illuminate\Database\Eloquent\Builder;
  * Usage:
  *   AddressTable::configure($table);
  *
- * Relation managers can hide the morph owner column:
- *   AddressTable::configure($table, showAddressableColumn: false);
+ * Relation managers with few rows should use dropdown filters:
+ *   AddressTable::configureForRelationManager($table);
  */
 final class AddressTable
 {
@@ -359,19 +359,37 @@ final class AddressTable
         Table $table,
         bool $showVerificationColumns = true,
         bool $showAddressableColumn = false,
+        FiltersLayout $filtersLayout = FiltersLayout::AboveContent,
     ): Table {
-        return $table
+        $table = $table
             ->columns(static::columns(
                 showVerificationColumns: $showVerificationColumns,
                 showAddressableColumn: $showAddressableColumn,
             ))
             ->filters(
                 filters: static::filters(showVerificationColumns: $showVerificationColumns),
-                layout: FiltersLayout::AboveContent,
+                layout: $filtersLayout,
             )
-            ->filtersFormColumns(6)
             ->columnManagerColumns(2)
             ->defaultSort(column: 'updated_at', direction: 'desc');
+
+        if (in_array($filtersLayout, [FiltersLayout::AboveContent, FiltersLayout::AboveContentCollapsible], true)) {
+            $table->filtersFormColumns(6);
+        }
+
+        return $table;
+    }
+
+    public static function configureForRelationManager(
+        Table $table,
+        bool $showVerificationColumns = true,
+    ): Table {
+        return static::configure(
+            table: $table,
+            showVerificationColumns: $showVerificationColumns,
+            showAddressableColumn: false,
+            filtersLayout: FiltersLayout::Dropdown,
+        );
     }
 
     /**
