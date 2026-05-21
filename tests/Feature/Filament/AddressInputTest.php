@@ -213,6 +213,16 @@ it('omits the validate_address toggle when disabled', function (): void {
     expect($names)->not->toContain('validate_address');
 });
 
+it('registers hidden fields for verification metadata persistence', function (): void {
+    $names = fieldNamesIn(AddressInput::componentSchema());
+
+    expect($names)->toContain('verdict')
+        ->and($names)->toContain('response_id')
+        ->and($names)->toContain('address_complete')
+        ->and($names)->toContain('has_unconfirmed_components')
+        ->and($names)->toContain('dump');
+});
+
 it('exposes the W3C / libaddressinput column names as field names', function (): void {
     $names = fieldNamesIn(AddressInput::componentSchema());
     $canonical = AddressFieldNames::canonical();

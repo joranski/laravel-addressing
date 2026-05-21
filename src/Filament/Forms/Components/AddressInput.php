@@ -12,6 +12,7 @@ use Joranski\Addressing\Contracts\AddressVerifier;
 use Joranski\Addressing\Data\AddressData;
 use Joranski\Addressing\Data\VerificationResult;
 use Joranski\Addressing\Enums\AddressFormLayout;
+use Joranski\Addressing\Enums\DeliverabilityVerdict;
 use Joranski\Addressing\Filament\Rules\ValidAddress;
 use Joranski\Addressing\Services\AddressFormatValidator;
 use Joranski\Addressing\Support\AddressFieldNames;
@@ -19,6 +20,7 @@ use Joranski\Addressing\Support\CountryFlagEmoji;
 use Joranski\Addressing\Support\CountrySelectOptions;
 use Joranski\Addressing\Support\GooglePlacesAdministrativeAreaResolver;
 use Joranski\Addressing\Support\SubdivisionSelectOptions;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -377,7 +379,41 @@ class AddressInput extends Section
             ->maxLength(250)
             ->columnSpanFull();
 
+        array_push($schema, ...static::verificationPersistenceFields());
+
         return $schema;
+    }
+
+    /**
+     * Hidden fields for Google / verifier metadata so Filament dehydrates them on save.
+     *
+     * @return list<Component>
+     */
+    public static function verificationPersistenceFields(): array
+    {
+        return [
+            Hidden::make('verdict')
+                ->formatStateUsing(fn (DeliverabilityVerdict|string|null $state): ?string => $state instanceof DeliverabilityVerdict ? $state->value : $state),
+            Hidden::make('response_id'),
+            Hidden::make('address_complete'),
+            Hidden::make('has_unconfirmed_components'),
+            Hidden::make('has_inferred_components'),
+            Hidden::make('has_replaced_components'),
+            Hidden::make('business'),
+            Hidden::make('po_box'),
+            Hidden::make('residential'),
+            Hidden::make('dump'),
+        ];
+    }
+
+    /**
+     * Closure for Filament action {@see \Filament\Actions\Concerns\HasData::mutateDataUsing()} on
+     * relation-manager CreateAction / EditAction. Do not use {@see EditAction::mutateRecordDataUsing()}
+     * — that hook runs when filling the form, not when saving.
+     */
+    public static function mutateDataUsing(): Closure
+    {
+        return fn (array $data): array => static::applyVerificationToFormData(data: $data);
     }
 
     protected static function buildMapPanel(AddressFieldNames $names): Component
