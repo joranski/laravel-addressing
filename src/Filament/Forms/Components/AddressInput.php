@@ -465,10 +465,7 @@ class AddressInput extends Section
         if (! ($data[$names->validateAddress] ?? true)) {
             return array_merge(
                 $data,
-                static::formDataFromModelAttributes(
-                    attributes: VerificationResult::unverifiedPersistenceAttributes(),
-                    names: $names,
-                ),
+                VerificationResult::unverifiedPersistenceAttributes(),
             );
         }
 
@@ -553,27 +550,28 @@ class AddressInput extends Section
      */
     private static function formDataFromModelAttributes(array $attributes, AddressFieldNames $names): array
     {
-        $mapped = [
-            $names->countryCode => $attributes['country_code'] ?? null,
-            $names->addressLine1 => $attributes['address_line1'] ?? null,
-            $names->addressLine2 => $attributes['address_line2'] ?? null,
-            $names->locality => $attributes['locality'] ?? null,
-            $names->administrativeArea => $attributes['administrative_area'] ?? null,
-            $names->postalCode => $attributes['postal_code'] ?? null,
-            $names->latitude => $attributes['latitude'] ?? null,
-            $names->longitude => $attributes['longitude'] ?? null,
+        $addressFieldMap = [
+            'country_code' => $names->countryCode,
+            'address_line1' => $names->addressLine1,
+            'address_line2' => $names->addressLine2,
+            'locality' => $names->locality,
+            'administrative_area' => $names->administrativeArea,
+            'postal_code' => $names->postalCode,
+            'latitude' => $names->latitude,
+            'longitude' => $names->longitude,
         ];
 
-        unset(
-            $attributes['country_code'],
-            $attributes['address_line1'],
-            $attributes['address_line2'],
-            $attributes['locality'],
-            $attributes['administrative_area'],
-            $attributes['postal_code'],
-            $attributes['latitude'],
-            $attributes['longitude'],
-        );
+        $mapped = [];
+
+        foreach ($addressFieldMap as $dbKey => $formKey) {
+            if (array_key_exists(key: $dbKey, array: $attributes)) {
+                $mapped[$formKey] = $attributes[$dbKey];
+            }
+        }
+
+        foreach (array_keys($addressFieldMap) as $dbKey) {
+            unset($attributes[$dbKey]);
+        }
 
         return array_merge($mapped, $attributes);
     }

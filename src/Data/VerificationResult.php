@@ -170,8 +170,10 @@ final readonly class VerificationResult
     }
 
     /**
-     * Default DB values for verification-derived columns when external validation
-     * is disabled on save ({@see addresses} migration defaults).
+     * Verification-only columns reset when external validation is disabled on save.
+     *
+     * Does not include W3C address fields (lines, locality, postal code, etc.) —
+     * those remain exactly as entered by the user.
      *
      * @return array<string, mixed>
      */

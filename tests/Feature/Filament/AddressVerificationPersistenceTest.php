@@ -122,6 +122,11 @@ it('skips verification when validate_address is disabled', function (): void {
     ]);
 
     expect($verifier->callCount)->toBe(0)
+        ->and($merged['country_code'])->toBe('US')
+        ->and($merged['address_line1'])->toBe('1 Main St')
+        ->and($merged['locality'])->toBe('Phoenix')
+        ->and($merged['administrative_area'])->toBe('AZ')
+        ->and($merged['postal_code'])->toBe('85001')
         ->and($merged['verdict'])->toBe('unverified')
         ->and($merged['response_id'])->toBeNull()
         ->and($merged['address_complete'])->toBeFalse()
