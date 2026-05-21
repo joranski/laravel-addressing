@@ -102,6 +102,21 @@ it('preserves raw payload in toArray + fromArray', function (): void {
     expect($rehydrated->raw)->toBe($r->raw);
 });
 
+it('exposes unverified persistence defaults for skipped external validation', function (): void {
+    expect(VerificationResult::unverifiedPersistenceAttributes())->toMatchArray([
+        'verdict' => 'unverified',
+        'response_id' => null,
+        'address_complete' => false,
+        'has_unconfirmed_components' => false,
+        'has_inferred_components' => false,
+        'has_replaced_components' => false,
+        'business' => false,
+        'po_box' => false,
+        'residential' => false,
+        'dump' => null,
+    ]);
+});
+
 it('maps verification metadata to model attributes', function (): void {
     $address = new AddressData('US', addressLine1: '1 Main St');
     $result = VerificationResult::deliverable(

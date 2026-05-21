@@ -109,10 +109,29 @@ it('skips verification when validate_address is disabled', function (): void {
         'administrative_area' => 'AZ',
         'postal_code' => '85001',
         'validate_address' => false,
+        'verdict' => 'deliverable',
+        'response_id' => 'stale-response',
+        'address_complete' => true,
+        'has_unconfirmed_components' => true,
+        'has_inferred_components' => true,
+        'has_replaced_components' => true,
+        'business' => true,
+        'po_box' => true,
+        'residential' => true,
+        'dump' => ['result' => ['verdict' => []]],
     ]);
 
     expect($verifier->callCount)->toBe(0)
-        ->and($merged)->not->toHaveKey('verdict');
+        ->and($merged['verdict'])->toBe('unverified')
+        ->and($merged['response_id'])->toBeNull()
+        ->and($merged['address_complete'])->toBeFalse()
+        ->and($merged['has_unconfirmed_components'])->toBeFalse()
+        ->and($merged['has_inferred_components'])->toBeFalse()
+        ->and($merged['has_replaced_components'])->toBeFalse()
+        ->and($merged['business'])->toBeFalse()
+        ->and($merged['po_box'])->toBeFalse()
+        ->and($merged['residential'])->toBeFalse()
+        ->and($merged['dump'])->toBeNull();
 });
 
 it('throws when applyVerificationToFormData receives an undeliverable address', function (): void {

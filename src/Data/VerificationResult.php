@@ -170,6 +170,28 @@ final readonly class VerificationResult
     }
 
     /**
+     * Default DB values for verification-derived columns when external validation
+     * is disabled on save ({@see addresses} migration defaults).
+     *
+     * @return array<string, mixed>
+     */
+    public static function unverifiedPersistenceAttributes(): array
+    {
+        return [
+            'verdict' => DeliverabilityVerdict::Unverified->value,
+            'response_id' => null,
+            'address_complete' => false,
+            'has_unconfirmed_components' => false,
+            'has_inferred_components' => false,
+            'has_replaced_components' => false,
+            'business' => false,
+            'po_box' => false,
+            'residential' => false,
+            'dump' => null,
+        ];
+    }
+
+    /**
      * @return array<string, mixed> attributes ready for Address::fill() / create()
      */
     public function toModelAttributes(): array

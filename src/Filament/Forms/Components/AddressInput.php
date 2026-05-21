@@ -10,6 +10,7 @@ namespace Joranski\Addressing\Filament\Forms\Components;
 use Closure;
 use Joranski\Addressing\Contracts\AddressVerifier;
 use Joranski\Addressing\Data\AddressData;
+use Joranski\Addressing\Data\VerificationResult;
 use Joranski\Addressing\Enums\AddressFormLayout;
 use Joranski\Addressing\Filament\Rules\ValidAddress;
 use Joranski\Addressing\Services\AddressFormatValidator;
@@ -459,13 +460,19 @@ class AddressInput extends Section
         array $data,
         ?AddressFieldNames $names = null,
     ): array {
-        static::validateFormDataOrFail(data: $data, names: $names);
-
         $names ??= AddressFieldNames::canonical();
 
         if (! ($data[$names->validateAddress] ?? true)) {
-            return $data;
+            return array_merge(
+                $data,
+                static::formDataFromModelAttributes(
+                    attributes: VerificationResult::unverifiedPersistenceAttributes(),
+                    names: $names,
+                ),
+            );
         }
+
+        static::validateFormDataOrFail(data: $data, names: $names);
 
         $verification = app(AddressVerifier::class)->verify(
             address: AddressData::fromArray(static::addressDataArrayFromFormData(data: $data, names: $names)),
