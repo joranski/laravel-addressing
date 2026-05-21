@@ -102,6 +102,38 @@ it('preserves raw payload in toArray + fromArray', function (): void {
     expect($rehydrated->raw)->toBe($r->raw);
 });
 
+it('maps verification metadata to model attributes', function (): void {
+    $address = new AddressData('US', addressLine1: '1 Main St');
+    $result = VerificationResult::deliverable(
+        address: $address,
+        isComplete: true,
+        isResidential: true,
+        formattedAddress: '1 Main St, Phoenix, AZ 85001, USA',
+        responseId: 'resp-1',
+        raw: [
+            'result' => [
+                'verdict' => [
+                    'hasUnconfirmedComponents' => true,
+                    'hasInferredComponents' => false,
+                    'hasReplacedComponents' => true,
+                ],
+            ],
+        ],
+    );
+
+    expect($result->toModelAttributes())->toMatchArray([
+        'address_line1' => '1 Main St',
+        'verdict' => 'deliverable',
+        'response_id' => 'resp-1',
+        'address_complete' => true,
+        'has_unconfirmed_components' => true,
+        'has_inferred_components' => false,
+        'has_replaced_components' => true,
+        'residential' => true,
+        'freeform_address' => '1 Main St, Phoenix, AZ 85001, USA',
+    ]);
+});
+
 it('markAsCached() returns a new instance with fromCache=true; original untouched', function (): void {
     $a = new AddressData('US');
     $r = VerificationResult::unverified($a);

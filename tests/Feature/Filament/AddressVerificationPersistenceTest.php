@@ -1,0 +1,157 @@
+<?php
+
+declare(strict_types=1);
+
+use Joranski\Addressing\Data\AddressData;
+use Joranski\Addressing\Data\VerificationResult;
+use Joranski\Addressing\Enums\DeliverabilityVerdict;
+use Joranski\Addressing\Filament\Forms\Components\AddressInput;
+use Joranski\Addressing\Tests\Support\FakeAddressVerifier;
+
+it('maps a deliverable verification result to address model attributes', function (): void {
+    $address = new AddressData(
+        countryCode: 'US',
+        addressLine1: '1 Main St',
+        locality: 'Phoenix',
+        administrativeArea: 'AZ',
+        postalCode: '85001',
+        latitude: 33.4484,
+        longitude: -112.0740,
+    );
+
+    $result = VerificationResult::deliverable(
+        address: $address,
+        isComplete: true,
+        isResidential: true,
+        isBusiness: false,
+        isPoBox: false,
+        formattedAddress: '1 Main St, Phoenix, AZ 85001, USA',
+        responseId: 'resp-123',
+        raw: [
+            'result' => [
+                'verdict' => [
+                    'hasUnconfirmedComponents' => false,
+                    'hasInferredComponents' => true,
+                    'hasReplacedComponents' => false,
+                ],
+            ],
+        ],
+    );
+
+    expect($result->toModelAttributes())->toMatchArray([
+        'country_code' => 'US',
+        'address_line1' => '1 Main St',
+        'locality' => 'Phoenix',
+        'administrative_area' => 'AZ',
+        'postal_code' => '85001',
+        'latitude' => 33.4484,
+        'longitude' => -112.0740,
+        'verdict' => 'deliverable',
+        'response_id' => 'resp-123',
+        'address_complete' => true,
+        'has_unconfirmed_components' => false,
+        'has_inferred_components' => true,
+        'has_replaced_components' => false,
+        'residential' => true,
+        'business' => false,
+        'po_box' => false,
+        'freeform_address' => '1 Main St, Phoenix, AZ 85001, USA',
+    ]);
+});
+
+it('merges verifier metadata into canonical form data when validation is enabled', function (): void {
+    $address = new AddressData(
+        countryCode: 'US',
+        addressLine1: '1 Main St',
+        locality: 'Phoenix',
+        administrativeArea: 'AZ',
+        postalCode: '85001',
+    );
+
+    app()->instance(
+        abstract: \Joranski\Addressing\Contracts\AddressVerifier::class,
+        instance: (new FakeAddressVerifier)->willReturn(
+            input: $address,
+            result: VerificationResult::deliverable(
+                address: $address,
+                isComplete: true,
+                formattedAddress: '1 Main St, Phoenix, AZ 85001, USA',
+                responseId: 'resp-abc',
+            ),
+        ),
+    );
+
+    $formData = [
+        'country_code' => 'US',
+        'address_line1' => '1 Main St',
+        'locality' => 'Phoenix',
+        'administrative_area' => 'AZ',
+        'postal_code' => '85001',
+        'validate_address' => true,
+    ];
+
+    $merged = AddressInput::applyVerificationToFormData(data: $formData);
+
+    expect($merged['verdict'])->toBe(DeliverabilityVerdict::Deliverable->value)
+        ->and($merged['response_id'])->toBe('resp-abc')
+        ->and($merged['address_complete'])->toBeTrue()
+        ->and($merged['freeform_address'])->toBe('1 Main St, Phoenix, AZ 85001, USA');
+});
+
+it('skips verification when validate_address is disabled', function (): void {
+    $verifier = new FakeAddressVerifier;
+    app()->instance(\Joranski\Addressing\Contracts\AddressVerifier::class, $verifier);
+
+    $merged = AddressInput::applyVerificationToFormData(data: [
+        'country_code' => 'US',
+        'address_line1' => '1 Main St',
+        'locality' => 'Phoenix',
+        'administrative_area' => 'AZ',
+        'postal_code' => '85001',
+        'validate_address' => false,
+    ]);
+
+    expect($verifier->callCount)->toBe(0)
+        ->and($merged)->not->toHaveKey('verdict');
+});
+
+it('uses cached verifier on a second apply for the same address', function (): void {
+    $address = new AddressData(
+        countryCode: 'US',
+        addressLine1: '1 Main St',
+        locality: 'Phoenix',
+        administrativeArea: 'AZ',
+        postalCode: '85001',
+    );
+
+    $inner = (new FakeAddressVerifier)->willReturn(
+        input: $address,
+        result: VerificationResult::deliverable(address: $address),
+    );
+
+    $cached = new \Joranski\Addressing\Verifiers\CachedVerifier(
+        inner: $inner,
+        cache: new \Illuminate\Cache\Repository(new \Illuminate\Cache\ArrayStore),
+        ttls: [
+            'verified_deliverable' => 3600,
+            'verified_undeliverable' => 3600,
+            'error' => 0,
+        ],
+    );
+
+    app()->instance(\Joranski\Addressing\Contracts\AddressVerifier::class, $cached);
+
+    $formData = [
+        'country_code' => 'US',
+        'address_line1' => '1 Main St',
+        'locality' => 'Phoenix',
+        'administrative_area' => 'AZ',
+        'postal_code' => '85001',
+        'validate_address' => true,
+    ];
+
+    AddressInput::applyVerificationToFormData(data: $formData);
+    AddressInput::applyVerificationToFormData(data: $formData);
+
+    expect($inner->callCount)->toBe(1);
+});

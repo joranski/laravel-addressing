@@ -9,6 +9,7 @@ namespace Joranski\Addressing\Filament\Forms\Components;
 
 use Closure;
 use Joranski\Addressing\Contracts\AddressVerifier;
+use Joranski\Addressing\Data\AddressData;
 use Joranski\Addressing\Enums\AddressFormLayout;
 use Joranski\Addressing\Filament\Rules\ValidAddress;
 use Joranski\Addressing\Services\AddressFormatValidator;
@@ -437,5 +438,87 @@ class AddressInput extends Section
             format: new AddressFormatValidator,
             verifier: app(AddressVerifier::class),
         );
+    }
+
+    /**
+     * Verify (when enabled) and merge verifier metadata into form data before persistence.
+     *
+     * Uses the configured {@see AddressVerifier} (CachedVerifier by default), so a
+     * prior ValidAddress validation pass for the same address hits cache instead of
+     * calling Google twice.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    public static function applyVerificationToFormData(
+        array $data,
+        ?AddressFieldNames $names = null,
+    ): array {
+        $names ??= AddressFieldNames::canonical();
+
+        if (! ($data[$names->validateAddress] ?? true)) {
+            return $data;
+        }
+
+        $verification = app(AddressVerifier::class)->verify(
+            address: AddressData::fromArray(static::addressDataArrayFromFormData(data: $data, names: $names)),
+        );
+
+        return array_merge(
+            $data,
+            static::formDataFromModelAttributes(
+                attributes: $verification->toModelAttributes(),
+                names: $names,
+            ),
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private static function addressDataArrayFromFormData(array $data, AddressFieldNames $names): array
+    {
+        return [
+            'country_code' => $data[$names->countryCode] ?? null,
+            'address_line1' => $data[$names->addressLine1] ?? null,
+            'address_line2' => $data[$names->addressLine2] ?? null,
+            'locality' => $data[$names->locality] ?? null,
+            'administrative_area' => $data[$names->administrativeArea] ?? null,
+            'postal_code' => $data[$names->postalCode] ?? null,
+            'latitude' => $data[$names->latitude] ?? null,
+            'longitude' => $data[$names->longitude] ?? null,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     * @return array<string, mixed>
+     */
+    private static function formDataFromModelAttributes(array $attributes, AddressFieldNames $names): array
+    {
+        $mapped = [
+            $names->countryCode => $attributes['country_code'] ?? null,
+            $names->addressLine1 => $attributes['address_line1'] ?? null,
+            $names->addressLine2 => $attributes['address_line2'] ?? null,
+            $names->locality => $attributes['locality'] ?? null,
+            $names->administrativeArea => $attributes['administrative_area'] ?? null,
+            $names->postalCode => $attributes['postal_code'] ?? null,
+            $names->latitude => $attributes['latitude'] ?? null,
+            $names->longitude => $attributes['longitude'] ?? null,
+        ];
+
+        unset(
+            $attributes['country_code'],
+            $attributes['address_line1'],
+            $attributes['address_line2'],
+            $attributes['locality'],
+            $attributes['administrative_area'],
+            $attributes['postal_code'],
+            $attributes['latitude'],
+            $attributes['longitude'],
+        );
+
+        return array_merge($mapped, $attributes);
     }
 }

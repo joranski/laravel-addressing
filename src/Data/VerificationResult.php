@@ -10,6 +10,7 @@ namespace Joranski\Addressing\Data;
 use Joranski\Addressing\Enums\DeliverabilityVerdict;
 use Joranski\Addressing\Enums\IssueCode;
 use Joranski\Addressing\Enums\IssueSeverity;
+use Joranski\Addressing\Models\Address;
 
 /**
  * Outcome of an AddressVerifier::verify() call.
@@ -166,6 +167,39 @@ final readonly class VerificationResult
             raw: (array) ($data['raw'] ?? []),
             fromCache: (bool) ($data['fromCache'] ?? false),
         );
+    }
+
+    /**
+     * @return array<string, mixed> attributes ready for Address::fill() / create()
+     */
+    public function toModelAttributes(): array
+    {
+        $rawVerdict = (array) (($this->raw['result']['verdict'] ?? []));
+
+        $attributes = array_merge(
+            Address::fromData($this->address),
+            [
+                'verdict' => $this->verdict->value,
+                'response_id' => $this->responseId,
+                'address_complete' => $this->isComplete,
+                'has_unconfirmed_components' => (bool) ($rawVerdict['hasUnconfirmedComponents'] ?? false),
+                'has_inferred_components' => (bool) ($rawVerdict['hasInferredComponents'] ?? false),
+                'has_replaced_components' => (bool) ($rawVerdict['hasReplacedComponents'] ?? false),
+                'business' => $this->isBusiness,
+                'po_box' => $this->isPoBox,
+                'residential' => $this->isResidential,
+            ],
+        );
+
+        if ($this->formattedAddress !== null) {
+            $attributes['freeform_address'] = $this->formattedAddress;
+        }
+
+        if ($this->raw !== []) {
+            $attributes['dump'] = $this->raw;
+        }
+
+        return $attributes;
     }
 
     public function markAsCached(): self

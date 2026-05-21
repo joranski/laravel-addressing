@@ -47,6 +47,8 @@ class AddressColumn extends TextColumn
     {
         parent::setUp();
 
+        $this->alignStart();
+
         $this->formatStateUsing(function ($state, $record): string {
             $address = $this->resolveAddress($state, $record);
             if ($address === null) {

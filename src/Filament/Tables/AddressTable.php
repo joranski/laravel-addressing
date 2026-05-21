@@ -49,10 +49,11 @@ final class AddressTable
                 ->searchable(isIndividual: true)
                 ->toggleable(isToggledHiddenByDefault: true),
 
-            AddressColumn::make('address')
-                ->label('Address')
+            AddressColumn::make('full_address')
+                ->label('Full Address')
                 ->format(format: 'short')
                 ->withVerdictIcon(with: true)
+                ->alignStart()
                 ->searchable(query: function (Builder $query, string $search): Builder {
                     return $query->where(function (Builder $query) use ($search): Builder {
                         return $query
@@ -68,59 +69,71 @@ final class AddressTable
 
             TextColumn::make('label')
                 ->searchable()
+                ->alignStart()
                 ->toggleable(isToggledHiddenByDefault: true),
 
             TextColumn::make('recipient')
                 ->searchable()
+                ->alignStart()
                 ->toggleable(isToggledHiddenByDefault: true),
 
             TextColumn::make('organization')
                 ->searchable()
+                ->alignStart()
                 ->toggleable(isToggledHiddenByDefault: true),
 
             TextColumn::make('address_line1')
                 ->label('Line 1')
                 ->searchable()
+                ->alignStart()
                 ->toggleable(isToggledHiddenByDefault: true),
 
             TextColumn::make('address_line2')
                 ->label('Line 2')
                 ->searchable()
+                ->alignStart()
                 ->toggleable(isToggledHiddenByDefault: true),
 
             TextColumn::make('street')
                 ->label('Street')
                 ->searchable()
                 ->sortable()
+                ->alignStart()
                 ->toggleable(isToggledHiddenByDefault: true),
 
             TextColumn::make('locality')
                 ->label('City')
                 ->searchable()
-                ->sortable(),
+                ->sortable()
+                ->alignStart(),
 
             TextColumn::make('administrative_area')
                 ->label('State / Province')
                 ->searchable()
-                ->sortable(),
+                ->sortable()
+                ->alignStart(),
 
             TextColumn::make('postal_code')
                 ->label('Postal code')
                 ->searchable()
-                ->sortable(),
+                ->sortable()
+                ->alignStart(),
 
             TextColumn::make('dependent_locality')
                 ->label('Neighborhood')
                 ->searchable()
+                ->alignStart()
                 ->toggleable(isToggledHiddenByDefault: true),
 
             TextColumn::make('sorting_code')
                 ->label('Sorting code')
                 ->searchable()
+                ->alignStart()
                 ->toggleable(isToggledHiddenByDefault: true),
 
             TextColumn::make('county')
                 ->searchable()
+                ->alignStart()
                 ->toggleable(isToggledHiddenByDefault: true),
 
             TextColumn::make('country_code')
@@ -128,12 +141,14 @@ final class AddressTable
                 ->formatStateUsing(fn (?string $state): ?string => CountrySelectOptions::labelFor(iso2: $state))
                 ->html(fn (): bool => CountryFlagEmoji::usesHtmlLabels())
                 ->searchable()
-                ->sortable(),
+                ->sortable()
+                ->alignStart(),
 
             TextColumn::make('verdict')
                 ->badge()
                 ->formatStateUsing(fn (DeliverabilityVerdict|string|null $state): ?string => static::formatVerdictLabel(state: $state))
                 ->sortable()
+                ->alignStart()
                 ->toggleable()
                 ->color(fn (DeliverabilityVerdict|string|null $state): string => match (static::normalizeVerdict(state: $state)) {
                     DeliverabilityVerdict::Deliverable => 'success',
