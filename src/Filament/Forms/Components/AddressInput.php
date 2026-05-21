@@ -28,6 +28,7 @@ use Filament\Schemas\Components\Group;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Single drop-in form component for canonical address entry.
@@ -224,11 +225,14 @@ class AddressInput extends Section
             ->live(onBlur: false)
             ->rules(fn (Get $get): array => static::validationRules(get: $get, names: $names));
 
+        $line2 = TextInput::make($names->addressLine2)
+            ->label('Apt / suite / unit (optional)')
+            ->maxLength(150)
+            ->rules(fn (Get $get): array => static::validationRules(get: $get, names: $names));
+
         $schema[] = Grid::make(2)->schema([
             $line1,
-            TextInput::make($names->addressLine2)
-                ->label('Apt / suite / unit (optional)')
-                ->maxLength(150),
+            $line2,
         ]);
 
         $localityField = TextInput::make($names->locality)
@@ -443,8 +447,9 @@ class AddressInput extends Section
     /**
      * Verify (when enabled) and merge verifier metadata into form data before persistence.
      *
-     * Uses the configured {@see AddressVerifier} (CachedVerifier by default), so a
-     * prior ValidAddress validation pass for the same address hits cache instead of
+     * Validates first so relation-manager modals cannot bypass field rules. Uses the
+     * configured {@see AddressVerifier} (CachedVerifier by default), so a prior
+     * ValidAddress validation pass for the same address hits cache instead of
      * calling Google twice.
      *
      * @param  array<string, mixed>  $data
@@ -454,6 +459,8 @@ class AddressInput extends Section
         array $data,
         ?AddressFieldNames $names = null,
     ): array {
+        static::validateFormDataOrFail(data: $data, names: $names);
+
         $names ??= AddressFieldNames::canonical();
 
         if (! ($data[$names->validateAddress] ?? true)) {
@@ -471,6 +478,48 @@ class AddressInput extends Section
                 names: $names,
             ),
         );
+    }
+
+    /**
+     * Run composite address validation and throw a Filament-friendly ValidationException.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public static function validateFormDataOrFail(array $data, ?AddressFieldNames $names = null): void
+    {
+        $names ??= AddressFieldNames::canonical();
+
+        if (! ($data[$names->validateAddress] ?? true)) {
+            return;
+        }
+
+        $errors = ValidAddress::collectFieldErrors(
+            address: AddressData::fromArray(static::addressDataArrayFromFormData(data: $data, names: $names)),
+            format: new AddressFormatValidator,
+            verifier: app(AddressVerifier::class),
+        );
+
+        if ($errors === []) {
+            return;
+        }
+
+        $messages = [];
+
+        foreach ($errors as $field => $fieldErrors) {
+            $formField = match ($field) {
+                'address_line1' => $names->addressLine1,
+                'address_line2' => $names->addressLine2,
+                'locality' => $names->locality,
+                'postal_code' => $names->postalCode,
+                'administrative_area' => $names->administrativeArea,
+                'country_code' => $names->countryCode,
+                default => $field,
+            };
+
+            $messages[$formField] = implode(' ', $fieldErrors);
+        }
+
+        throw ValidationException::withMessages($messages);
     }
 
     /**

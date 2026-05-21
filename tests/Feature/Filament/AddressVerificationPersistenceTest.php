@@ -115,6 +115,47 @@ it('skips verification when validate_address is disabled', function (): void {
         ->and($merged)->not->toHaveKey('verdict');
 });
 
+it('throws when applyVerificationToFormData receives an undeliverable address', function (): void {
+    $address = new AddressData(
+        countryCode: 'US',
+        addressLine1: '100 Apartment Way',
+        locality: 'San Francisco',
+        administrativeArea: 'CA',
+        postalCode: '94110',
+    );
+
+    app()->instance(
+        abstract: \Joranski\Addressing\Contracts\AddressVerifier::class,
+        instance: (new FakeAddressVerifier)->willReturn(
+            input: $address,
+            result: new VerificationResult(
+                address: $address,
+                verdict: DeliverabilityVerdict::Undeliverable,
+                isComplete: false,
+                isResidential: true,
+                isBusiness: false,
+                isPoBox: false,
+                issues: [
+                    new \Joranski\Addressing\Data\AddressIssue(
+                        code: \Joranski\Addressing\Enums\IssueCode::RequiresSubpremise,
+                        severity: \Joranski\Addressing\Enums\IssueSeverity::Warning,
+                        message: 'The address likely requires a unit/apartment number.',
+                    ),
+                ],
+            ),
+        ),
+    );
+
+    AddressInput::applyVerificationToFormData(data: [
+        'country_code' => 'US',
+        'address_line1' => '100 Apartment Way',
+        'locality' => 'San Francisco',
+        'administrative_area' => 'CA',
+        'postal_code' => '94110',
+        'validate_address' => true,
+    ]);
+})->throws(\Illuminate\Validation\ValidationException::class);
+
 it('uses cached verifier on a second apply for the same address', function (): void {
     $address = new AddressData(
         countryCode: 'US',

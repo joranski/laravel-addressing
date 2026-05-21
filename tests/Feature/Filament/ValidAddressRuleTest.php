@@ -84,3 +84,68 @@ it('accepts a hydrated array payload (DB-style keys)', function (): void {
 
     expect(runRule($rule, $array))->toBe([]);
 });
+
+it('rejects undeliverable addresses with warning-level issues such as missing apartment', function (): void {
+    $address = new AddressData(
+        countryCode: 'US',
+        addressLine1: '100 Apartment Way',
+        locality: 'San Francisco',
+        administrativeArea: 'CA',
+        postalCode: '94110',
+    );
+
+    $verification = new VerificationResult(
+        address: $address,
+        verdict: \Joranski\Addressing\Enums\DeliverabilityVerdict::Undeliverable,
+        isComplete: false,
+        isResidential: true,
+        isBusiness: false,
+        isPoBox: false,
+        issues: [
+            new \Joranski\Addressing\Data\AddressIssue(
+                code: \Joranski\Addressing\Enums\IssueCode::RequiresSubpremise,
+                severity: \Joranski\Addressing\Enums\IssueSeverity::Warning,
+                message: 'The address likely requires a unit/apartment number.',
+            ),
+        ],
+    );
+
+    $verifier = (new FakeAddressVerifier)->willReturn($address, $verification);
+    $rule = new ValidAddress(new AddressFormatValidator, $verifier);
+
+    $failures = runRule($rule, $address);
+
+    expect($failures)->toHaveCount(1)
+        ->and($failures[0])->toContain('unit/apartment');
+});
+
+it('maps missing-subpremise failures to address_line2', function (): void {
+    $address = new AddressData(
+        countryCode: 'US',
+        addressLine1: '100 Apartment Way',
+        locality: 'San Francisco',
+        administrativeArea: 'CA',
+        postalCode: '94110',
+    );
+
+    $verification = new VerificationResult(
+        address: $address,
+        verdict: \Joranski\Addressing\Enums\DeliverabilityVerdict::Undeliverable,
+        isComplete: false,
+        isResidential: true,
+        isBusiness: false,
+        isPoBox: false,
+        issues: [
+            new \Joranski\Addressing\Data\AddressIssue(
+                code: \Joranski\Addressing\Enums\IssueCode::RequiresSubpremise,
+                severity: \Joranski\Addressing\Enums\IssueSeverity::Warning,
+                message: 'The address likely requires a unit/apartment number.',
+            ),
+        ],
+    );
+
+    $errors = ValidAddress::collectVerificationFieldErrors(verification: $verification);
+
+    expect($errors)->toHaveKey('address_line2')
+        ->and($errors['address_line2'][0])->toContain('unit/apartment');
+});
