@@ -6,12 +6,9 @@ namespace Joranski\Addressing;
 
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Joranski\Addressing\Console\SyncCountriesCommand;
 use Joranski\Addressing\Contracts\AddressVerifier;
-use Joranski\Addressing\Models\Address;
-use Joranski\Addressing\Policies\AddressPolicy;
 use Joranski\Addressing\Verifiers\CachedVerifier;
 use Joranski\Addressing\Verifiers\GoogleAddressVerifier;
 use Joranski\Addressing\Verifiers\NullVerifier;
@@ -43,8 +40,6 @@ final class AddressingServiceProvider extends ServiceProvider
     {
         $this->loadMigrationsFrom($this->packagePath('database/migrations'));
         $this->loadViewsFrom($this->packagePath('resources/views'), 'addressing');
-
-        Gate::policy(Address::class, AddressPolicy::class);
 
         $this->publishes([
             $this->packagePath('config/addressing.php') => config_path('addressing.php'),
