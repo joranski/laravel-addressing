@@ -58,6 +58,14 @@ final class AddressingServiceProvider extends ServiceProvider
         ], 'addressing-resources');
 
         if ($this->app->runningInConsole()) {
+            $this->publishes([
+                $this->packagePath('stubs/AddressPolicy.php.stub') => app_path('Policies/AddressPolicy.php'),
+            ], 'addressing-policy');
+
+            $this->publishes([
+                $this->packagePath('stubs/AddressPolicyShield.php.stub') => app_path('Policies/AddressPolicy.php'),
+            ], 'addressing-policy-shield');
+
             $this->commands([
                 SyncCountriesCommand::class,
             ]);

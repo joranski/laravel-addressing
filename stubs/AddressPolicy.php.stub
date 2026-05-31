@@ -1,0 +1,79 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Policies;
+
+use App\Models\User;
+use Joranski\Addressing\Models\Address;
+
+/**
+ * Standalone Address policy (no Filament Shield / Spatie permissions required).
+ *
+ * Publish from joranski/laravel-addressing:
+ *   php artisan vendor:publish --tag=addressing-policy
+ *
+ * Adjust rules to match your staff roles.
+ */
+class AddressPolicy
+{
+    public function viewAny(User $user): bool
+    {
+        return true;
+    }
+
+    public function view(User $user, Address $address): bool
+    {
+        return true;
+    }
+
+    public function create(User $user): bool
+    {
+        return true;
+    }
+
+    public function update(User $user, Address $address): bool
+    {
+        return true;
+    }
+
+    public function delete(User $user, Address $address): bool
+    {
+        return true;
+    }
+
+    public function deleteAny(User $user): bool
+    {
+        return false;
+    }
+
+    public function restore(User $user, Address $address): bool
+    {
+        return false;
+    }
+
+    public function forceDelete(User $user, Address $address): bool
+    {
+        return false;
+    }
+
+    public function forceDeleteAny(User $user): bool
+    {
+        return false;
+    }
+
+    public function restoreAny(User $user): bool
+    {
+        return false;
+    }
+
+    public function replicate(User $user, Address $address): bool
+    {
+        return false;
+    }
+
+    public function reorder(User $user): bool
+    {
+        return false;
+    }
+}

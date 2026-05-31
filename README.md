@@ -172,6 +172,100 @@ When Google Places autocomplete is enabled, selecting a result:
 
 commerceguys/addressing drives this: Iraq (`IQ`) requires an administrative area but ships **zero** subdivisions in the dataset, so users type the governorate manually instead of picking from an empty dropdown.
 
+## Authorization
+
+Address permissions flow through **`AddressAuthorization`**, which supports [Filament Shield](https://github.com/bezhanSalleh/filament-shield) **and** apps without Shield.
+
+### How it works
+
+| `authorization.mode` | Behavior |
+|------------------------|----------|
+| **`auto`** (default) | Uses Laravel policies when an `AddressPolicy` is registered; otherwise uses fallback rules |
+| **`policy`** | Always requires policy checks (denies when no policy) |
+| **`fallback`** | Ignores policies; uses fallback rules only |
+
+```php
+'authorization' => [
+    'mode' => 'auto',
+    'fallback' => [
+        'view_any' => true,
+        'view' => true,
+        'create' => true,
+        'update' => true,
+        'delete' => true,
+        'delete_any' => false,
+        // restore, force_delete, replicate, reorder => false by default
+    ],
+],
+```
+
+### Filament Shield permission map
+
+The Shield policy stub implements **every default Shield resource ability**:
+
+| Shield permission | Policy method | Used by address UI |
+|-------------------|---------------|---------------------|
+| `ViewAny:Address` | `viewAny` | Show address relation manager / table |
+| `View:Address` | `view` | View individual address rows |
+| `Create:Address` | `create` | Add address |
+| `Update:Address` | `update` | Edit address |
+| `Delete:Address` | `delete` | Delete single address |
+| `DeleteAny:Address` | `deleteAny` | Bulk delete |
+| `Restore:Address` | `restore` | Reserved (soft deletes / admin resource) |
+| `ForceDelete:Address` | `forceDelete` | Reserved |
+| `ForceDeleteAny:Address` | `forceDeleteAny` | Reserved |
+| `RestoreAny:Address` | `restoreAny` | Reserved |
+| `Replicate:Address` | `replicate` | Reserved |
+| `Reorder:Address` | `reorder` | Reserved |
+
+### Filament relation managers
+
+Use both package traits on address relation managers so create / edit / delete respect `AddressAuthorization`:
+
+```php
+use Joranski\Addressing\Filament\Concerns\AuthorizesAddressRecords;
+use Joranski\Addressing\Filament\Concerns\ConfiguresAddressRelationManagerActions;
+
+class AddressesRelationManager extends RelationManager
+{
+    use AuthorizesAddressRecords;
+    use ConfiguresAddressRelationManagerActions;
+}
+```
+
+### With Filament Shield
+
+```bash
+php artisan vendor:publish --tag=addressing-policy-shield
+php artisan shield:generate --resource=AddressResource --option=policies
+```
+
+Register the policy in your app service provider:
+
+```php
+Gate::policy(Address::class, AddressPolicy::class);
+```
+
+Keep `authorization.mode` as **`auto`**. Super-admin bypass works via Shield's `Gate::before` — no package dependency on Shield.
+
+### Without Filament Shield
+
+**Option A — Fallback (fastest):** leave `mode` as `auto` and do not register a policy. Authenticated staff can manage addresses per fallback config.
+
+**Option B — Standalone policy:**
+
+```bash
+php artisan vendor:publish --tag=addressing-policy
+```
+
+**Option C — Force fallback:**
+
+```php
+'authorization' => ['mode' => 'fallback'],
+```
+
+The package **does not** require `filament-shield` or `spatie/laravel-permission` as Composer dependencies.
+
 ## Testing
 
 ```bash

@@ -74,4 +74,38 @@ return [
         'svg_cdn_url' => 'https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.2.3/flags/4x3/%s.svg',
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Authorization
+    |--------------------------------------------------------------------------
+    |
+    | mode:
+    |   auto     — use Laravel policies when registered; otherwise fallback rules
+    |   policy   — always require policy checks (deny when no policy)
+    |   fallback — ignore policies; use fallback rules only
+    |
+    | With Filament Shield, publish AddressPolicyShield and keep mode "auto".
+    | Without Shield, publish the standalone policy stub or rely on fallback.
+    |
+    | Use AuthorizesAddressRecords on Filament address relation managers so
+    | create / view / update / delete actions respect these rules.
+    */
+    'authorization' => [
+        'mode' => 'auto',
+        'fallback' => [
+            'view_any' => true,
+            'view' => true,
+            'create' => true,
+            'update' => true,
+            'delete' => true,
+            'delete_any' => false,
+            'restore' => false,
+            'force_delete' => false,
+            'force_delete_any' => false,
+            'restore_any' => false,
+            'replicate' => false,
+            'reorder' => false,
+        ],
+    ],
+
 ];
