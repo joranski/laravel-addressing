@@ -39,6 +39,19 @@ php artisan migrate
 php artisan addressing:sync-countries
 ```
 
+### Database support
+
+Migrations are tested against **MySQL**, **PostgreSQL**, and **SQLite**.
+
+The `addresses` table defines `street` and `full_address` as virtual generated columns. PostgreSQL requires immutable expressions for generated columns, so the package uses driver-specific concatenation:
+
+| Driver | Expression |
+|--------|------------|
+| PostgreSQL, SQLite | `COALESCE(...) \|\| ...` |
+| MySQL (default) | `CONCAT(COALESCE(...), ...)` |
+
+No manual migration overrides are needed for PostgreSQL.
+
 Publish config (optional):
 
 ```bash

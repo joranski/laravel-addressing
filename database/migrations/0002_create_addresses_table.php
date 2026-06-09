@@ -67,14 +67,14 @@ return new class extends Migration
             $driver = Schema::getConnection()->getDriverName();
 
             $table->string('street')->virtualAs(
-                $driver === 'sqlite'
-                    ? "address_line1 || ' ' || address_line2"
+                in_array($driver, ['sqlite', 'pgsql'], true)
+                    ? "COALESCE(address_line1,'') || ' ' || COALESCE(address_line2,'')"
                     : "CONCAT(COALESCE(address_line1,''), ' ', COALESCE(address_line2,''))"
             );
 
             $table->string('full_address')->virtualAs(
-                $driver === 'sqlite'
-                    ? "address_line1 || ' ' || address_line2 || ', ' || locality || ', ' || administrative_area || ' ' || postal_code"
+                in_array($driver, ['sqlite', 'pgsql'], true)
+                    ? "COALESCE(address_line1,'') || ' ' || COALESCE(address_line2,'') || ', ' || COALESCE(locality,'') || ', ' || COALESCE(administrative_area,'') || ' ' || COALESCE(postal_code,'')"
                     : "CONCAT(COALESCE(address_line1,''), ' ', COALESCE(address_line2,''), ', ', COALESCE(locality,''), ', ', COALESCE(administrative_area,''), ' ', COALESCE(postal_code,''))"
             );
 
