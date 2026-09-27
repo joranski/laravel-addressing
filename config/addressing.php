@@ -40,6 +40,8 @@ return [
     */
     'google' => [
         'api_key' => env('GOOGLE_MAPS_API_KEY'),
+        // Browser key for the Places autocomplete in <x-addressing::fields>; falls back to api_key.
+        'places_api_key' => env('GOOGLE_MAPS_BROWSER_API_KEY'),
         'enable_usps_cass_for' => ['US', 'PR'],
         'endpoint' => 'https://addressvalidation.googleapis.com/v1:validateAddress',
     ],
@@ -49,7 +51,7 @@ return [
     | Default Map Center
     |--------------------------------------------------------------------------
     |
-    | Used by MapLocationField when no lat/lng is present in form state.
+    | Used by map pickers when no lat/lng is present in form state.
     | Host apps may override after publishing this config file.
     */
     'default_map_center' => [
@@ -59,7 +61,7 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Country Flag Display (Filament Select labels)
+    | Country Flag Display (country select labels)
     |--------------------------------------------------------------------------
     |
     | Unicode emoji flags (display: emoji) use regional-indicator characters.
@@ -84,11 +86,10 @@ return [
     |   policy   — always require policy checks (deny when no policy)
     |   fallback — ignore policies; use fallback rules only
     |
-    | With Filament Shield, publish AddressPolicyShield and keep mode "auto".
-    | Without Shield, publish the standalone policy stub or rely on fallback.
-    |
-    | Use AuthorizesAddressRecords on Filament address relation managers so
-    | create / view / update / delete actions respect these rules.
+    | With Shield-style permissions (view_any_address, ...), publish
+    | AddressPolicyShield and keep mode "auto". Otherwise publish the
+    | standalone policy stub or rely on fallback. UI layers should route
+    | create / view / update / delete checks through AddressAuthorization.
     */
     'authorization' => [
         'mode' => 'auto',

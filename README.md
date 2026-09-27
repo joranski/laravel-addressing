@@ -1,6 +1,6 @@
 # joranski/laravel-addressing
 
-Universal address handling for Laravel applications — offline format validation, pluggable verification, and Filament v5 form components.
+Universal address handling for Laravel applications — offline format validation, pluggable verification, a UI-agnostic form-data verifier, and Flux / Blade address fields for Livewire.
 
 ## Features
 
@@ -13,23 +13,26 @@ Universal address handling for Laravel applications — offline format validatio
 - `HasAddresses` trait with shipping/billing defaults via `address_usages` pivot
 - `addressing:sync-countries` Artisan command
 
-### Filament v5
+- `ValidAddress` — composite validation rule (offline format check, then the configured verifier)
+- `AddressFormDataVerifier` — verifies flat form data and merges verifier metadata before persistence (any UI)
+- Country / subdivision option helpers (`CountrySelectOptions`, `SubdivisionSelectOptions`, `CountryFlagEmoji`)
+- `GooglePlacesAdministrativeAreaResolver` — subdivision code resolution for Google Places results
 
-- **`AddressInput`** — drop-in address section with optional Google Places autocomplete, map pin, and external verification toggle
-- **`AddressColumn`** / **`AddressEntry`** — read-only table and infolist display
-- **`AddressTable`** — portable Filament table with above-content filters and column manager
-- **`ValidAddress`** — composite validation rule wired to `AddressFormatValidator` and optional verifiers
-- **Country select** — searchable by name, ISO2, or ISO3; labels prefixed with dynamically generated Unicode flag emoji
-- **State / Province select** — country-dependent subdivisions from commerceguys; searchable by full name or abbreviation (e.g. `Arizona` / `AZ`, `Forlì-Cesena` / `FC`)
-- **Google Places populate** — selects an address and fills street, city, postal code, country, and subdivision; handles cross-country updates and Italian province codes (`administrative_area_level_2`)
+### Livewire / Flux
+
+- **`<x-addressing::fields>`** — canonical address fields bound to a Livewire property prefix
+- **`<x-addressing::google-places-autocomplete>`** — Google Places search box that fills sibling properties; handles cross-country updates and Italian province codes (`administrative_area_level_2`)
+
+The components use [Flux](https://fluxui.dev) (`livewire/flux`), which is suggested rather than required.
 
 ### Field naming
 
+`AddressFieldNames` maps form keys to address columns:
+
 | API | Use case |
 |-----|----------|
-| `AddressInput::make('address')` | Canonical W3C columns on an `Address` model |
-| `AddressInput::embeddedSchema()` | Same fields inside a relationship form |
-| `AddressInput::flatComponentSchema()` | Legacy flat JSON keys (`street_line_1`, `city`, `state`, `zip`, `country_iso2`) |
+| `AddressFieldNames::canonical()` | W3C columns on an `Address` model (`address_line1`, `locality`, …) |
+| `AddressFieldNames::flat()` | Legacy flat JSON keys (`street_line_1`, `city`, `state`, `zip`, `country_iso2`) |
 
 ## Installation
 
@@ -58,7 +61,7 @@ Publish config (optional):
 php artisan vendor:publish --tag=addressing-config
 ```
 
-Configure Google Places (host app) and map defaults in `config/addressing.php` after publishing.
+Configure Google keys and map defaults in `config/addressing.php` after publishing. `google.places_api_key` (`GOOGLE_MAPS_BROWSER_API_KEY`) is the browser key used by the Places search box; it falls back to `google.api_key`.
 
 ## Usage
 
@@ -75,73 +78,50 @@ class Company extends Model
 }
 ```
 
-### Filament — full address form
+### Verifying form data
 
 ```php
-use Joranski\Addressing\Filament\Forms\Components\AddressInput;
+use Joranski\Addressing\Verification\AddressFormDataVerifier;
 
-AddressInput::make('address')
-    ->heading('Address')
-    ->showMap()
-    ->layoutSplitMap();
+$attributes = app(AddressFormDataVerifier::class)->apply(
+    data: $validated,                   // address_line1, locality, …, validate_address
+    errorKeyPrefix: 'addressForm.',     // optional: match Livewire form property paths
+);
+
+$owner->addresses()->create($attributes);
 ```
 
-Options:
-
-| Method | Default | Description |
-|--------|---------|-------------|
-| `showMap()` | `false` | Map pin + lat/lng fields |
-| `layoutSplitMap()` | stacked | Side-by-side map layout |
-| `showGooglePlacesAutocomplete()` | `true` | Google Places search field |
-| `showValidationToggle()` | `true` | External verification toggle |
-
-### Filament — flat JSON fields (e.g. driver logs)
-
-```php
-AddressInput::flatComponentSchema(showMap: true);
-```
+When `validate_address` is on, the data is validated first (a `ValidationException` keyed by form field is thrown on failure), then the verifier result (`verdict`, `response_id`, component flags, …) is merged in. When it is off, stale verifier metadata is reset to "unverified". Pass `names: AddressFieldNames::flat()` for flat JSON keys.
 
 ### Validation rule
 
 ```php
-use Joranski\Addressing\Filament\Forms\Components\AddressInput;
+use Joranski\Addressing\Verification\AddressFormDataVerifier;
 
-AddressInput::make('address')
-    ->rule(AddressInput::rule());
+$rule = app(AddressFormDataVerifier::class)->rule(); // Joranski\Addressing\Rules\ValidAddress
 ```
 
-### Filament — address table
+### Livewire / Flux address fields
 
-Portable list/table definition with above-content filters and a rich column manager:
-
-```php
-use Joranski\Addressing\Filament\Tables\AddressTable;
-
-AddressTable::configure($table);
-
-// Global address index — include morph owner columns:
-AddressTable::configure($table, showAddressableColumn: true);
-
-// Relation managers — dropdown filters (default Filament placement):
-AddressTable::configureForRelationManager($table);
-
-// Or pass layout explicitly:
-AddressTable::configure($table, showAddressableColumn: false, filtersLayout: FiltersLayout::Dropdown);
+```blade
+<x-addressing::fields wire-model-prefix="addressForm" />
 ```
 
-**Default visible columns:** formatted address (with verdict icon), city, state/province, postal code, country, verdict badge.
+| Prop | Default | Description |
+|------|---------|-------------|
+| `wire-model-prefix` | none | Livewire property prefix (e.g. a form object) |
+| `autocomplete` | `true` | Google Places search box (only when a browser key is configured) |
+| `coordinates` | `false` | Also fill `latitude` / `longitude` / `location` from Places |
+| `show-label` | `true` | Address label field |
+| `show-verify-toggle` | `true` | `validate_address` switch |
 
-**Toggleable (hidden by default):** label, recipient, organization, line 1/2, street, neighborhood, sorting code, county, delivery instructions, coordinates, verifier metadata, UUID/legacy IDs, timestamps, and (optionally) verification flags (`business`, `residential`, `PO box`, component-quality icons).
-
-**Filters:** country, verdict, city, state/province, postal code, label, recipient, organization, plus ternary filters for validation/deliverability flags when verification columns are enabled. Global address lists use **above-content** filters; relation managers should use **`configureForRelationManager()`** for the standard dropdown filter trigger.
-
-**Primary column:** `AddressColumn` with country-aware formatting and optional verdict glyph — use `AddressColumn::make('address')` on related models or standalone rows.
+The Places search box loads the Google Maps JavaScript API on demand and fires a `google-maps-loaded` window event.
 
 ## Country flags
 
 Country select labels include a flag prefix generated from the ISO2 code.
 
-**Default (`svg`):** small SVG images from the [lipis/flag-icons](https://github.com/lipis/flag-icons) CDN — works on **Windows, macOS, Linux, iOS, and Android**. Filament `allowHtml()` is enabled automatically for the country Select.
+**Default (`svg`):** small SVG images from the [lipis/flag-icons](https://github.com/lipis/flag-icons) CDN — works on **Windows, macOS, Linux, iOS, and Android**. Render the label as HTML in your select component.
 
 **Why not Unicode emoji?** Flag emoji are two [Regional Indicator](https://unicode.org/reports/tr51/#Regional_Indicator_Symbols) codepoints. Windows Segoe UI Emoji often renders them as plain letters (`US`) instead of a colored flag. Set `display` to `emoji` if you prefer Unicode on platforms that support it.
 
@@ -165,7 +145,7 @@ CountryFlagEmoji::labelPrefix('US');   // Prefix for Select labels (respects con
 
 ## Google Places populate
 
-When Google Places autocomplete is enabled, selecting a result:
+Selecting a Google Places result (shared parser: `addressing::partials.google-places-parser`):
 
 1. Parses all `address_components` types (not only the first)
 2. Prefers subdivision level-2 codes where applicable (e.g. Italian provinces)
@@ -187,7 +167,7 @@ commerceguys/addressing drives this: Iraq (`IQ`) requires an administrative area
 
 ## Authorization
 
-Address permissions flow through **`AddressAuthorization`**, which supports [Filament Shield](https://github.com/bezhanSalleh/filament-shield) **and** apps without Shield.
+Address permissions flow through **`AddressAuthorization`**, which supports Shield-style permission policies **and** apps without them.
 
 ### How it works
 
@@ -212,7 +192,7 @@ Address permissions flow through **`AddressAuthorization`**, which supports [Fil
 ],
 ```
 
-### Filament Shield permission map
+### Shield permission map
 
 The Shield policy stub implements **every default Shield resource ability**:
 
@@ -231,22 +211,11 @@ The Shield policy stub implements **every default Shield resource ability**:
 | `Replicate:Address` | `replicate` | Reserved |
 | `Reorder:Address` | `reorder` | Reserved |
 
-### Filament relation managers
+### UI integration
 
-Use both package traits on address relation managers so create / edit / delete respect `AddressAuthorization`:
+Route create / view / update / delete checks for address rows through `AddressAuthorization` (or your registered `AddressPolicy`).
 
-```php
-use Joranski\Addressing\Filament\Concerns\AuthorizesAddressRecords;
-use Joranski\Addressing\Filament\Concerns\ConfiguresAddressRelationManagerActions;
-
-class AddressesRelationManager extends RelationManager
-{
-    use AuthorizesAddressRecords;
-    use ConfiguresAddressRelationManagerActions;
-}
-```
-
-### With Filament Shield
+### With Shield
 
 ```bash
 php artisan vendor:publish --tag=addressing-policy-shield
@@ -261,7 +230,7 @@ Gate::policy(Address::class, AddressPolicy::class);
 
 Keep `authorization.mode` as **`auto`**. Super-admin bypass works via Shield's `Gate::before` — no package dependency on Shield.
 
-### Without Filament Shield
+### Without Shield
 
 **Option A — Fallback (fastest):** leave `mode` as `auto` and do not register a policy. Authenticated staff can manage addresses per fallback config.
 
@@ -277,7 +246,7 @@ php artisan vendor:publish --tag=addressing-policy
 'authorization' => ['mode' => 'fallback'],
 ```
 
-The package **does not** require `filament-shield` or `spatie/laravel-permission` as Composer dependencies.
+The package **does not** require a Shield plugin or `spatie/laravel-permission` as Composer dependencies.
 
 ## Testing
 
@@ -288,7 +257,7 @@ composer test
 Run a subset:
 
 ```bash
-vendor/bin/pest --compact tests/Feature/Filament/AddressInputTest.php
+vendor/bin/pest --compact tests/Feature/Verification/AddressFormDataVerifierTest.php
 vendor/bin/pest --compact tests/Unit/Support/CountryFlagEmojiTest.php
 ```
 
@@ -296,7 +265,7 @@ vendor/bin/pest --compact tests/Unit/Support/CountryFlagEmojiTest.php
 
 - PHP 8.3+
 - Laravel 12+
-- Filament 5+ (optional; required for form/table/infolist components)
+- Livewire 4 + Flux 2 (optional; required for the Blade address components)
 
 ## License
 

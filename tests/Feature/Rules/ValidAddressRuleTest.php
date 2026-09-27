@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 use Joranski\Addressing\Data\AddressData;
 use Joranski\Addressing\Data\VerificationResult;
-use Joranski\Addressing\Filament\Rules\ValidAddress;
+use Joranski\Addressing\Rules\ValidAddress;
 use Joranski\Addressing\Services\AddressFormatValidator;
 use Joranski\Addressing\Tests\Support\FakeAddressVerifier;
 

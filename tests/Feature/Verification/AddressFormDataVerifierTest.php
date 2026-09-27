@@ -5,8 +5,8 @@ declare(strict_types=1);
 use Joranski\Addressing\Data\AddressData;
 use Joranski\Addressing\Data\VerificationResult;
 use Joranski\Addressing\Enums\DeliverabilityVerdict;
-use Joranski\Addressing\Filament\Forms\Components\AddressInput;
 use Joranski\Addressing\Tests\Support\FakeAddressVerifier;
+use Joranski\Addressing\Verification\AddressFormDataVerifier;
 
 it('maps a deliverable verification result to address model attributes', function (): void {
     $address = new AddressData(
@@ -90,7 +90,7 @@ it('merges verifier metadata into canonical form data when validation is enabled
         'validate_address' => true,
     ];
 
-    $merged = AddressInput::applyVerificationToFormData(data: $formData);
+    $merged = app(AddressFormDataVerifier::class)->apply(data: $formData);
 
     expect($merged['verdict'])->toBe(DeliverabilityVerdict::Deliverable->value)
         ->and($merged['response_id'])->toBe('resp-abc')
@@ -102,7 +102,7 @@ it('skips verification when validate_address is disabled', function (): void {
     $verifier = new FakeAddressVerifier;
     app()->instance(\Joranski\Addressing\Contracts\AddressVerifier::class, $verifier);
 
-    $merged = AddressInput::applyVerificationToFormData(data: [
+    $merged = app(AddressFormDataVerifier::class)->apply(data: [
         'country_code' => 'US',
         'address_line1' => '1 Main St',
         'locality' => 'Phoenix',
@@ -139,7 +139,7 @@ it('skips verification when validate_address is disabled', function (): void {
         ->and($merged['dump'])->toBeNull();
 });
 
-it('throws when applyVerificationToFormData receives an undeliverable address', function (): void {
+it('throws when the form-data verifier receives an undeliverable address', function (): void {
     $address = new AddressData(
         countryCode: 'US',
         addressLine1: '100 Apartment Way',
@@ -170,7 +170,7 @@ it('throws when applyVerificationToFormData receives an undeliverable address', 
         ),
     );
 
-    AddressInput::applyVerificationToFormData(data: [
+    app(AddressFormDataVerifier::class)->apply(data: [
         'country_code' => 'US',
         'address_line1' => '100 Apartment Way',
         'locality' => 'San Francisco',
@@ -215,8 +215,95 @@ it('uses cached verifier on a second apply for the same address', function (): v
         'validate_address' => true,
     ];
 
-    AddressInput::applyVerificationToFormData(data: $formData);
-    AddressInput::applyVerificationToFormData(data: $formData);
+    app(AddressFormDataVerifier::class)->apply(data: $formData);
+    app(AddressFormDataVerifier::class)->apply(data: $formData);
 
     expect($inner->callCount)->toBe(1);
+});
+
+it('keys validation errors by form field name with an optional prefix', function (): void {
+    $address = new AddressData(
+        countryCode: 'US',
+        addressLine1: '100 Apartment Way',
+        locality: 'San Francisco',
+        administrativeArea: 'CA',
+        postalCode: '94110',
+    );
+
+    app()->instance(
+        abstract: \Joranski\Addressing\Contracts\AddressVerifier::class,
+        instance: (new FakeAddressVerifier)->willReturn(
+            input: $address,
+            result: new VerificationResult(
+                address: $address,
+                verdict: DeliverabilityVerdict::Undeliverable,
+                isComplete: false,
+                isResidential: true,
+                isBusiness: false,
+                isPoBox: false,
+                issues: [
+                    new \Joranski\Addressing\Data\AddressIssue(
+                        code: \Joranski\Addressing\Enums\IssueCode::RequiresSubpremise,
+                        severity: \Joranski\Addressing\Enums\IssueSeverity::Warning,
+                        message: 'The address likely requires a unit/apartment number.',
+                    ),
+                ],
+            ),
+        ),
+    );
+
+    try {
+        app(AddressFormDataVerifier::class)->apply(
+            data: [
+                'street_line_1' => '100 Apartment Way',
+                'city' => 'San Francisco',
+                'state' => 'CA',
+                'zip' => '94110',
+                'country_iso2' => 'US',
+                'validate_address' => true,
+            ],
+            names: \Joranski\Addressing\Support\AddressFieldNames::flat(),
+            errorKeyPrefix: 'stop.',
+        );
+    } catch (\Illuminate\Validation\ValidationException $exception) {
+        expect(array_keys($exception->errors()))->toBe(['stop.street_line_2']);
+
+        return;
+    }
+
+    $this->fail('Expected a ValidationException.');
+});
+
+it('maps verified address values back onto flat form field names', function (): void {
+    $address = new AddressData(
+        countryCode: 'US',
+        addressLine1: '1 Main St',
+        locality: 'Phoenix',
+        administrativeArea: 'AZ',
+        postalCode: '85001',
+    );
+
+    app()->instance(
+        abstract: \Joranski\Addressing\Contracts\AddressVerifier::class,
+        instance: (new FakeAddressVerifier)->willReturn(
+            input: $address,
+            result: VerificationResult::deliverable(address: $address, responseId: 'resp-flat'),
+        ),
+    );
+
+    $merged = app(AddressFormDataVerifier::class)->apply(
+        data: [
+            'street_line_1' => '1 Main St',
+            'city' => 'Phoenix',
+            'state' => 'AZ',
+            'zip' => '85001',
+            'country_iso2' => 'US',
+            'validate_address' => true,
+        ],
+        names: \Joranski\Addressing\Support\AddressFieldNames::flat(),
+    );
+
+    expect($merged)->toHaveKeys(['street_line_1', 'city', 'state', 'zip', 'country_iso2'])
+        ->not->toHaveKeys(['address_line1', 'locality', 'postal_code'])
+        ->and($merged['response_id'])->toBe('resp-flat');
 });

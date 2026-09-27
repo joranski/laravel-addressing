@@ -140,3 +140,39 @@ test('no class under Joranski\\Addressing imports App\\Models\\* or App\\Filamen
         message: 'Package source must not depend on host App\\Models\\* or App\\Filament\\Resources\\Addresses\\*. Offenders: '.implode("\n", $offenders),
     );
 });
+
+test('src, resources and config never reference Filament', function (): void {
+    $root = dirname(__DIR__, 2);
+    $offenders = [];
+
+    foreach (['src', 'resources', 'config'] as $dir) {
+        $iterator = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($root.'/'.$dir, RecursiveDirectoryIterator::SKIP_DOTS)
+        );
+
+        foreach ($iterator as $file) {
+            if ($file->isFile() && stripos((string) file_get_contents($file->getPathname()), 'filament') !== false) {
+                $offenders[] = substr($file->getPathname(), strlen($root) + 1);
+            }
+        }
+    }
+
+    expect($offenders)->toBeEmpty(
+        message: 'The package must stay Filament-free. Offenders: '.implode(', ', $offenders),
+    );
+});
+
+test('composer.json does not require or suggest filament packages', function (): void {
+    $composer = json_decode(
+        json: (string) file_get_contents(dirname(__DIR__, 2).'/composer.json'),
+        associative: true,
+    );
+
+    $packages = array_keys(array_merge(
+        $composer['require'] ?? [],
+        $composer['require-dev'] ?? [],
+        $composer['suggest'] ?? [],
+    ));
+
+    expect(array_filter($packages, fn (string $name): bool => str_starts_with($name, 'filament/')))->toBeEmpty();
+});

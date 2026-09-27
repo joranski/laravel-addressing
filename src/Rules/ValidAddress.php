@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Joranski\Addressing\Filament\Rules;
+namespace Joranski\Addressing\Rules;
 
 // @package-candidate score=6/6 target-package=joranski/laravel-addressing
 // Target extraction path: /home/joranski/packages/laravel-addressing

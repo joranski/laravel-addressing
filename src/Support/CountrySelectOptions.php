@@ -7,7 +7,7 @@ namespace Joranski\Addressing\Support;
 use Joranski\Addressing\Models\Country;
 
 /**
- * Filament Select option labels and search metadata for countries.
+ * Select option labels and search metadata for countries.
  */
 final class CountrySelectOptions
 {

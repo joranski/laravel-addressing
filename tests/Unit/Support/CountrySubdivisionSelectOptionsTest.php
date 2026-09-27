@@ -108,10 +108,15 @@ it('knows iraq requires administrative area but has no subdivision catalog', fun
         ->and(SubdivisionSelectOptions::shouldUseSubdivisionSelect('IQ'))->toBeFalse();
 });
 
-it('knows great britain does not use administrative area in its address format', function (): void {
-    expect(SubdivisionSelectOptions::countryUsesAdministrativeArea('GB'))->toBeFalse()
-        ->and(SubdivisionSelectOptions::hasOptionsForCountry('GB'))->toBeFalse()
-        ->and(SubdivisionSelectOptions::shouldUseSubdivisionSelect('GB'))->toBeFalse();
+it('knows germany does not use administrative area in its address format', function (): void {
+    expect(SubdivisionSelectOptions::countryUsesAdministrativeArea('DE'))->toBeFalse()
+        ->and(SubdivisionSelectOptions::hasOptionsForCountry('DE'))->toBeFalse()
+        ->and(SubdivisionSelectOptions::shouldUseSubdivisionSelect('DE'))->toBeFalse();
+});
+
+it('uses the great britain council-area catalog shipped by commerceguys/addressing', function (): void {
+    expect(SubdivisionSelectOptions::countryUsesAdministrativeArea('GB'))->toBeTrue()
+        ->and(SubdivisionSelectOptions::shouldUseSubdivisionSelect('GB'))->toBeTrue();
 });
 
 it('uses subdivision select for countries with a catalog', function (): void {

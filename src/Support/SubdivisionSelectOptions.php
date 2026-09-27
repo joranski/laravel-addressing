@@ -12,7 +12,7 @@ use CommerceGuys\Addressing\Subdivision\SubdivisionRepository;
 use Throwable;
 
 /**
- * Filament Select option labels and search metadata for country subdivisions.
+ * Select option labels and search metadata for country subdivisions.
  */
 final class SubdivisionSelectOptions
 {

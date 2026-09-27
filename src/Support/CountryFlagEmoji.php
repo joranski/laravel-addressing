@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Joranski\Addressing\Support;
 
 /**
- * Country flag display for Filament Select labels and other UI.
+ * Country flag display for select option labels and other UI.
  *
  * Unicode flag emoji are two "Regional Indicator" codepoints (e.g. U+1F1FA U+1F1F8 for US).
  * Windows Segoe UI Emoji historically renders those as the letters "US" instead of a colored
@@ -87,7 +87,7 @@ final class CountryFlagEmoji
     }
 
     /**
-     * Inline SVG flag image for Filament Select labels ({@see Select::allowHtml()}).
+     * Inline SVG flag image for HTML-capable select option labels.
      */
     public static function htmlImage(?string $iso2): string
     {
